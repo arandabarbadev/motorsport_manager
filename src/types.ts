@@ -72,6 +72,8 @@ export interface RaceState {
   track: Track;
   weather: Weather;
   cars: RaceCarState[];
+  // Engine extension: team lookup by id (team colors for the renderer/HUD).
+  teams: Team[];
   // Engine extension: roster lookup by id, so simulationTick can resolve
   // real Driver stats and Car ratings for every RaceCarState.
   drivers: Driver[];
