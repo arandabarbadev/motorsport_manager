@@ -7,7 +7,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "harness": "tsc src/test-harness.ts --outDir harness-out --module commonjs --target ES2020 --esModuleInterop --skipLibCheck && node harness-out/test-harness.js",
-    "tracks": "tsc src/tracks-report.ts --outDir harness-out --module commonjs --target ES2020 --esModuleInterop --skipLibCheck && node harness-out/tracks-report.js"
+    "tracks": "tsc src/tracks-report.ts --outDir harness-out --module commonjs --target ES2020 --esModuleInterop --skipLibCheck && node harness-out/tracks-report.js",
+    "maps": "tsc src/layouts-preview.ts --outDir harness-out --module commonjs --target ES2020 --esModuleInterop --skipLibCheck && node harness-out/layouts-preview.js"
   },
   "devDependencies": {
     "typescript": "^5.9.0",
