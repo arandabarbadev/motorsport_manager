@@ -7,7 +7,8 @@ import {
   simulationTick,
 } from './simulation';
 import { prizeForPosition } from './prize-table';
-import { loadCareer, saveCareer } from './career';
+import { getOrCreateCareer, saveCareer } from './career';
+import { getTrackById } from './tracks-generator';
 import { buildTrackSampler, Point, TrackSampler } from './track-path';
 
 // ============================================================
@@ -93,8 +94,7 @@ export function createRaceScreen(
             <div class="results-list"></div>
             <div class="results-total"></div>
             <div class="results-actions">
-              <button type="button" class="btn primary overlay-restart-btn">↻ Nueva carrera</button>
-              <button type="button" class="btn overlay-exit-btn">← Mi Equipo</button>
+              <button type="button" class="btn primary overlay-exit-btn">← Mi Equipo</button>
             </div>
           </div>
         </div>
@@ -128,9 +128,6 @@ export function createRaceScreen(
   const exitBtn = root.querySelector<HTMLButtonElement>('.exit-btn')!;
   if (onExit) exitBtn.addEventListener('click', onExit);
   else exitBtn.remove();
-  root
-    .querySelector<HTMLButtonElement>('.overlay-restart-btn')!
-    .addEventListener('click', () => setup());
   const overlayExitBtn = root.querySelector<HTMLButtonElement>('.overlay-exit-btn')!;
   if (onExit) overlayExitBtn.addEventListener('click', onExit);
   else overlayExitBtn.remove();
@@ -471,6 +468,9 @@ export function createRaceScreen(
   function updateControls(): void {
     pauseBtn.textContent = state.isPaused ? '▶ Seguir' : '⏸ Pausa';
     pauseBtn.disabled = finished;
+    // After the chequered flag the calendar moves on: no restart of
+    // the same GP (the next one is entered from "Mi Equipo").
+    restartBtn.disabled = finished;
     for (const btn of speedBtns) {
       btn.classList.toggle(
         'active',
@@ -506,10 +506,20 @@ export function createRaceScreen(
       }));
     const totalPrize = playerResults.reduce((sum, r) => sum + r.prize, 0);
 
-    const career = loadCareer() ?? { version: 1, budget: 0 };
+    const career = getOrCreateCareer(0);
+    let nextRaceLabel = '';
     if (!prizeAwarded) {
       prizeAwarded = true;
       career.budget += totalPrize;
+      // Phase 5: advance the season calendar after a finished race.
+      // (The season's last race gets its own end screen in Phase 6.)
+      if (career.currentRaceIndex < career.calendar.length - 1) {
+        career.currentRaceIndex += 1;
+        const next = getTrackById(career.calendar[career.currentRaceIndex]);
+        nextRaceLabel = next ? `Siguiente GP: ${next.name}` : '';
+      } else {
+        nextRaceLabel = 'Última carrera de la temporada';
+      }
       saveCareer(career);
     }
 
@@ -524,7 +534,7 @@ export function createRaceScreen(
       (row.querySelector<HTMLElement>('.result-name')!).textContent = r.name;
       resultsListEl.appendChild(row);
     }
-    resultsTotalEl.textContent = `Premio total: +${totalPrize} M€ · Presupuesto del equipo: ${career.budget} M€`;
+    resultsTotalEl.textContent = `Premio: +${totalPrize} M€ · Presupuesto: ${career.budget} M€ · ${nextRaceLabel}`;
     overlayEl.classList.remove('hidden');
   }
 

@@ -1,4 +1,4 @@
-import { Car, Driver, RaceState, Team } from './types';
+import { Car, Driver, RaceState, Team, Track } from './types';
 import { buildRaceStateFromRoster } from './race-builder';
 import { makeRng } from './rng';
 import { Roster, TeamEntry } from './roster';
@@ -66,5 +66,22 @@ function buildTestRoster(): Roster {
 }
 
 export function buildTestRaceState(): RaceState {
-  return buildRaceStateFromRoster(buildTestRoster());
+  return buildRaceStateFromRoster(buildTestRoster(), buildTestTrack());
+}
+
+// The original placeholder oval: kept so harness results stay
+// comparable across phases (the real game uses generated tracks).
+function buildTestTrack(): Track {
+  return {
+    id: 'test-oval',
+    name: 'Test Oval',
+    totalLaps: 40,
+    path: Array.from({ length: 12 }, (_, i) => {
+      const angle = (i / 12) * Math.PI * 2;
+      return { x: 0.5 + Math.cos(angle) * 0.35, y: 0.5 + Math.sin(angle) * 0.25 };
+    }),
+    overtakeDifficulty: 0.5,
+    tyreDegradationFactor: 1.0,
+    pitLaneTimeLoss: 22,
+  };
 }

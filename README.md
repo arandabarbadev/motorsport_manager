@@ -8,7 +8,7 @@ Juego de gestión de escudería de F1 estilo *Motorsport Manager*: gestión de e
 - [x] **Fase 2 — Render Canvas** (circuito spline, 20 coches, HUD, pit stops del jugador)
 - [x] **Fase 3 — Mi Equipo + parrilla de rivales generada** (persistencia en `localStorage`)
 - [x] **Fase 4 — Fin de carrera, premios y economía persistente** (`f1manager:career:v1`)
-- [ ] Fase 5 — Generador procedural de 20 pistas y calendario
+- [x] **Fase 5 — Generador procedural de 20 pistas y calendario** (`npm run tracks` para ver la tabla)
 - [ ] Fase 6 — Pantalla de fin de temporada
 
 ## Stack

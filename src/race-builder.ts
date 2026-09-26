@@ -2,33 +2,17 @@ import { Car, Driver, RaceCarState, RaceState, Track, TyreCompound } from './typ
 import { Roster } from './roster';
 
 // ============================================================
-// RACE BUILDER (Phase 3): converts the persisted roster into the
-// RaceState consumed by the engine and the race screen.
+// RACE BUILDER (Phase 3+5): converts the persisted roster into
+// the RaceState consumed by the engine and the race screen.
+// The track comes from the career calendar (Phase 5).
 // ============================================================
-
-// Same placeholder track used since Phase 1 (Phase 5 replaces it
-// with the generated calendar).
-function buildTestTrack(): Track {
-  return {
-    id: 'test-oval',
-    name: 'Test Oval',
-    totalLaps: 40,
-    path: Array.from({ length: 12 }, (_, i) => {
-      const angle = (i / 12) * Math.PI * 2;
-      return { x: 0.5 + Math.cos(angle) * 0.35, y: 0.5 + Math.sin(angle) * 0.25 };
-    }),
-    overtakeDifficulty: 0.5,
-    tyreDegradationFactor: 1.0,
-    pitLaneTimeLoss: 22,
-  };
-}
 
 // Expected pace factor used to line up the grid (fastest first),
 // same weighting as the simulation's basePaceFactor.
 export const expectedPace = (d: Driver, spec: Car): number =>
   (d.pace / 100) * 0.6 + (((spec.aero + spec.engine + spec.chassis) / 3) / 100) * 0.4;
 
-export function buildRaceStateFromRoster(roster: Roster): RaceState {
+export function buildRaceStateFromRoster(roster: Roster, track: Track): RaceState {
   const teams = roster.entries.map((e) => e.team);
   const drivers: Driver[] = [];
   const carSpecs: Car[] = [];
@@ -59,7 +43,7 @@ export function buildRaceStateFromRoster(roster: Roster): RaceState {
   }));
 
   return {
-    track: buildTestTrack(),
+    track,
     weather: 'dry',
     cars,
     teams,
