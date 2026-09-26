@@ -51,7 +51,8 @@ interface PitBox {
 
 export function createRaceScreen(
   container: HTMLElement,
-  buildInitialState: () => RaceState
+  buildInitialState: () => RaceState,
+  onExit?: () => void
 ): void {
   container.innerHTML = '';
 
@@ -68,6 +69,7 @@ export function createRaceScreen(
         <span class="race-clock"></span>
       </div>
       <div class="race-controls">
+        <button type="button" class="btn exit-btn">← Mi Equipo</button>
         <button type="button" class="btn pause-btn"></button>
         <button type="button" class="btn speed-btn" data-speed="1">1x</button>
         <button type="button" class="btn speed-btn" data-speed="5">5x</button>
@@ -104,6 +106,9 @@ export function createRaceScreen(
   const restartBtn = root.querySelector<HTMLButtonElement>('.restart-btn')!;
   const pitPanel = root.querySelector<HTMLElement>('.pit-panel')!;
   const standingsEl = root.querySelector<HTMLOListElement>('.standings')!;
+  const exitBtn = root.querySelector<HTMLButtonElement>('.exit-btn')!;
+  if (onExit) exitBtn.addEventListener('click', onExit);
+  else exitBtn.remove();
 
   // Mutable screen state (rebuilt on restart).
   let state = buildInitialState();

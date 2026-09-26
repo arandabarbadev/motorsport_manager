@@ -1,6 +1,24 @@
+import { createTeamScreen } from './team-screen';
 import { createRaceScreen } from './race-screen';
-import { buildTestRaceState } from './test-grid';
+import { loadRoster } from './roster';
+import { buildRaceStateFromRoster } from './race-builder';
 
-// Phase 2 entry point: open the race screen on the shared test grid.
-// Phase 3 replaces buildTestRaceState with the real editable roster.
-createRaceScreen(document.getElementById('app')!, buildTestRaceState);
+// Phase 3 entry point: the app opens on "Mi Equipo" management;
+// "Ir a la carrera" builds the RaceState from the saved roster.
+const app = document.getElementById('app')!;
+
+function showTeamScreen(): void {
+  createTeamScreen(app, showRaceScreen);
+}
+
+function showRaceScreen(): void {
+  const roster = loadRoster();
+  if (!roster) {
+    showTeamScreen(); // no valid saved roster: back to management
+    return;
+  }
+  // The race uses a snapshot of the roster taken when entering.
+  createRaceScreen(app, () => buildRaceStateFromRoster(roster), showTeamScreen);
+}
+
+showTeamScreen();

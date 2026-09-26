@@ -1,3 +1,5 @@
+@import './ui.css';
+
 /* ============================================================
    RACE SCREEN (Phase 2) — dark pit-wall theme, desktop + mobile
    ============================================================ */
@@ -46,31 +48,6 @@
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-}
-
-.btn {
-  background: #21262d;
-  color: #e6edf3;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 14px;
-  cursor: pointer;
-  min-height: 36px; /* big enough for touch */
-}
-
-.btn:hover:not(:disabled) {
-  background: #30363d;
-}
-
-.btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.btn.active {
-  background: #1f6feb;
-  border-color: #1f6feb;
 }
 
 .race-body {
