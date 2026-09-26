@@ -1,37 +1,27 @@
-import { ALL_TRACKS } from './tracks-generator';
-import { buildTrackSampler } from './track-path';
+import { ALL_TRACKS, TRACK_PROFILES } from './tracks-generator';
 
 // ============================================================
-// TRACKS REPORT: prints a summary table of the 20 generated
-// season tracks (npm run tracks). Useful for tuning the
-// generator formulas without opening the game.
+// TRACKS REPORT: prints a summary table of the 20 season tracks
+// (npm run tracks). Useful for tuning the profiles without
+// opening the game.
 // ============================================================
 
 const pad = (s: string, n: number): string => (s.length >= n ? s : s + ' '.repeat(n - s.length));
 
 export function tracksReport(): string {
   const lines = [
-    '#   NAME                LAPS   ~KM   DEG   PIT(s)  DIFF  PTS',
-    '------------------------------------------------------------',
+    '#   NAME             LAPS  KM   DEG   PIT(s)  DIFF',
+    '-------------------------------------------------',
   ];
   ALL_TRACKS.forEach((t, i) => {
-    const pts = buildTrackSampler(t.path).polyline();
-    let len = 0;
-    for (let j = 0; j < pts.length; j++) {
-      const a = pts[j];
-      const b = pts[(j + 1) % pts.length];
-      len += Math.hypot(b.x - a.x, b.y - a.y);
-    }
-    const lapKm = len * 3; // same formula as the generator
     lines.push(
       pad(String(i + 1), 4) +
-        pad(t.name, 19) +
+        pad(t.name, 17) +
         pad(String(t.totalLaps), 5) +
-        pad(lapKm.toFixed(1), 6) +
+        pad(TRACK_PROFILES[i].km.toFixed(1), 5) +
         pad(t.tyreDegradationFactor.toFixed(2), 6) +
         pad(String(t.pitLaneTimeLoss), 8) +
-        pad(t.overtakeDifficulty.toFixed(2), 6) +
-        String(t.path.length)
+        t.overtakeDifficulty.toFixed(2)
     );
   });
   return lines.join('\n');
