@@ -249,3 +249,15 @@ export function runTestHarness(): string {
 
   return lines.join('\n');
 }
+
+// When executed directly with node (npm run harness), print the report.
+// The typeof guards keep this block out of the browser build.
+declare const require: { main: unknown };
+declare const module: { exports: unknown };
+if (
+  typeof require !== 'undefined' &&
+  typeof module !== 'undefined' &&
+  require.main === module
+) {
+  console.log(runTestHarness());
+}
