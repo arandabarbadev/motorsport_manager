@@ -10,6 +10,7 @@ import {
   Roster,
   TeamEntry,
 } from './roster';
+import { getOrCreateCareer, saveCareer, CareerState } from './career';
 
 // ============================================================
 // TEAM SCREEN (Phase 3): "Mi Equipo" management (name, livery
@@ -72,6 +73,11 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
 
   const playerEntry = (): TeamEntry =>
     roster.entries.find((e) => e.team.id === roster.playerTeamId)!;
+
+  // Phase 4: the real budget lives in the persistent career state;
+  // the roster copy only serves as fallback for old (Phase 3) saves.
+  const career: CareerState = getOrCreateCareer(playerEntry().team.budget);
+  saveCareer(career);
 
   const budgetValueEl = root.querySelector<HTMLElement>('.budget-value')!;
   const teamNameInput = root.querySelector<HTMLInputElement>('.team-name-input')!;
@@ -137,11 +143,13 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
     const btn = row.querySelector<HTMLButtonElement>('.upgrade-btn')!;
     btn.addEventListener('click', () => {
       const entry = playerEntry();
-      if (entry.team.budget < UPGRADE_COST) return;
+      if (career.budget < UPGRADE_COST) return;
       if (entry.cars[0][stat] + UPGRADE_STEP > MAX_CAR_STAT) return;
-      entry.team.budget -= UPGRADE_COST;
+      career.budget -= UPGRADE_COST;
+      entry.team.budget = career.budget; // keep the roster copy in sync
       for (const car of entry.cars) car[stat] += UPGRADE_STEP;
       saveRoster(roster);
+      saveCareer(career);
       refresh();
     });
     upgradeButtons.set(stat, btn);
@@ -150,14 +158,14 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
 
   function refresh(): void {
     const entry = playerEntry();
-    budgetValueEl.textContent = String(entry.team.budget);
+    budgetValueEl.textContent = String(career.budget);
     for (const stat of upgradeButtons.keys()) {
       const value = entry.cars[0][stat];
       statValues.get(stat)!.textContent = String(value);
       const btn = upgradeButtons.get(stat)!;
       btn.textContent = `+${UPGRADE_STEP} · ${UPGRADE_COST} M€`;
       btn.disabled =
-        value + UPGRADE_STEP > MAX_CAR_STAT || entry.team.budget < UPGRADE_COST;
+        value + UPGRADE_STEP > MAX_CAR_STAT || career.budget < UPGRADE_COST;
     }
   }
 

@@ -1,6 +1,13 @@
 import './race-screen.css';
 import { RaceCarState, RaceState, TyreCompound, Weather } from './types';
-import { queuePitCommand, simulationTick } from './simulation';
+import {
+  getFinalClassification,
+  isRaceFinished,
+  queuePitCommand,
+  simulationTick,
+} from './simulation';
+import { prizeForPosition } from './prize-table';
+import { loadCareer, saveCareer } from './career';
 import { buildTrackSampler, Point, TrackSampler } from './track-path';
 
 // ============================================================
@@ -80,7 +87,17 @@ export function createRaceScreen(
     <div class="race-body">
       <div class="track-wrap">
         <canvas class="track-canvas"></canvas>
-        <div class="race-banner hidden"></div>
+        <div class="results-overlay hidden">
+          <div class="results-panel">
+            <h2>🏁 Carrera terminada</h2>
+            <div class="results-list"></div>
+            <div class="results-total"></div>
+            <div class="results-actions">
+              <button type="button" class="btn primary overlay-restart-btn">↻ Nueva carrera</button>
+              <button type="button" class="btn overlay-exit-btn">← Mi Equipo</button>
+            </div>
+          </div>
+        </div>
       </div>
       <aside class="hud">
         <div class="pit-panel"></div>
@@ -96,7 +113,9 @@ export function createRaceScreen(
   // The track is static during a race: draw it once to an offscreen layer.
   const trackLayer = document.createElement('canvas');
   const layerCtx = trackLayer.getContext('2d')!;
-  const bannerEl = root.querySelector<HTMLElement>('.race-banner')!;
+  const overlayEl = root.querySelector<HTMLElement>('.results-overlay')!;
+  const resultsListEl = root.querySelector<HTMLElement>('.results-list')!;
+  const resultsTotalEl = root.querySelector<HTMLElement>('.results-total')!;
   const nameEl = root.querySelector<HTMLElement>('.race-name')!;
   const lapEl = root.querySelector<HTMLElement>('.race-lap')!;
   const weatherEl = root.querySelector<HTMLElement>('.race-weather')!;
@@ -109,6 +128,12 @@ export function createRaceScreen(
   const exitBtn = root.querySelector<HTMLButtonElement>('.exit-btn')!;
   if (onExit) exitBtn.addEventListener('click', onExit);
   else exitBtn.remove();
+  root
+    .querySelector<HTMLButtonElement>('.overlay-restart-btn')!
+    .addEventListener('click', () => setup());
+  const overlayExitBtn = root.querySelector<HTMLButtonElement>('.overlay-exit-btn')!;
+  if (onExit) overlayExitBtn.addEventListener('click', onExit);
+  else overlayExitBtn.remove();
 
   // Mutable screen state (rebuilt on restart).
   let state = buildInitialState();
@@ -118,6 +143,7 @@ export function createRaceScreen(
   let lastTickAt = performance.now();
   let clockSec = 0;
   let finished = false;
+  let prizeAwarded = false; // prize money is added exactly once per race
   let pendingPit = new Set<string>();
   const rows = new Map<string, StandingRow>();
   const pitBoxes: PitBox[] = [];
@@ -142,7 +168,8 @@ export function createRaceScreen(
     clockSec = 0;
     finished = false;
     lastTickAt = performance.now();
-    bannerEl.classList.add('hidden');
+    overlayEl.classList.add('hidden');
+    prizeAwarded = false;
     buildStandings();
     buildPitPanel();
     updateControls();
@@ -246,12 +273,11 @@ export function createRaceScreen(
     clockSec += state.simTimeMultiplier;
     lastTickAt = performance.now();
 
-    // Chequered flag (full results screen arrives in Phase 4).
-    if (state.cars.some((c) => c.currentLap >= state.track.totalLaps)) {
+    // Chequered flag (engine condition) -> prizes + results overlay.
+    if (isRaceFinished(state)) {
       finished = true;
       state.isPaused = true;
-      const winner = [...state.cars].sort((a, b) => a.position - b.position)[0];
-      showBanner(`🏁 Fin de carrera — gana ${driverById(winner.driverId).name}`);
+      awardPrizesAndShowResults();
       updateControls();
       updateHud();
     }
@@ -468,9 +494,38 @@ export function createRaceScreen(
 
   restartBtn.addEventListener('click', () => setup());
 
-  function showBanner(text: string): void {
-    bannerEl.textContent = text;
-    bannerEl.classList.remove('hidden');
+  // Phase 4: add the prize money of both player cars to the persistent
+  // career budget (exactly once per race) and show the results overlay.
+  function awardPrizesAndShowResults(): void {
+    const playerResults = getFinalClassification(state)
+      .filter((c) => c.isPlayerControlled)
+      .map((c) => ({
+        position: c.position,
+        name: driverById(c.driverId).name,
+        prize: prizeForPosition(c.position),
+      }));
+    const totalPrize = playerResults.reduce((sum, r) => sum + r.prize, 0);
+
+    const career = loadCareer() ?? { version: 1, budget: 0 };
+    if (!prizeAwarded) {
+      prizeAwarded = true;
+      career.budget += totalPrize;
+      saveCareer(career);
+    }
+
+    resultsListEl.innerHTML = '';
+    for (const r of playerResults) {
+      const row = document.createElement('div');
+      row.className = 'result-row';
+      row.innerHTML = `
+        <span class="result-pos">P${r.position}</span>
+        <span class="result-name"></span>
+        <span class="result-prize">+${r.prize} M€</span>`;
+      (row.querySelector<HTMLElement>('.result-name')!).textContent = r.name;
+      resultsListEl.appendChild(row);
+    }
+    resultsTotalEl.textContent = `Premio total: +${totalPrize} M€ · Presupuesto del equipo: ${career.budget} M€`;
+    overlayEl.classList.remove('hidden');
   }
 
   // ---- Start ----

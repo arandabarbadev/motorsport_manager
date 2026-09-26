@@ -127,8 +127,21 @@ function chooseCompound(lapsRemaining: number, totalLaps: number): TyreCompound 
   return 'medium';
 }
 
+// Race end condition (Phase 4): the race is over the moment the
+// leader completes track.totalLaps. After that the state is frozen
+// (simulationTick does nothing) and the classification is read as-is.
+export function isRaceFinished(state: RaceState): boolean {
+  return state.cars.some((c) => c.currentLap >= state.track.totalLaps);
+}
+
+// Final classification, best placed first.
+export function getFinalClassification(state: RaceState): RaceCarState[] {
+  return [...state.cars].sort((a, b) => a.position - b.position);
+}
+
 export function simulationTick(state: RaceState): void {
   if (state.isPaused) return;
+  if (isRaceFinished(state)) return; // frozen after the chequered flag
   applyQueuedCommands(state);
 
   const seconds = state.simTimeMultiplier;
