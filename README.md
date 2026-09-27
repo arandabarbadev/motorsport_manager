@@ -22,7 +22,13 @@ TypeScript + Vite + npm. Funciona en escritorio y móvil. Sin framework de UI po
 | `npm install` | instala las dependencias |
 | `npm run dev` | abre el juego en el navegador (modo desarrollo) |
 | `npm run harness` | corre el test del motor de la Fase 1 en la consola |
+| `npm run tracks` | tabla de las 20 pistas de la temporada |
+| `npm run maps` | dibuja los 20 circuitos en ASCII en la consola |
 | `npm run build` | compila la versión de producción |
+
+## Datos de circuitos
+
+Los trazados de los 20 circuitos provienen de trazas GPS reales de las pistas (datos de [OpenStreetMap](https://www.openstreetmap.org) vía [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits)), convertidos con `node tools/convert-layouts.js`.
 
 ## Arquitectura (reglas fijas)
 
