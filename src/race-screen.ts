@@ -9,6 +9,7 @@ import {
 import { prizeForPosition } from './prize-table';
 import { getOrCreateCareer, saveCareer } from './career';
 import { getTrackById } from './tracks-generator';
+import { onThemeChange, themeButtonLabel, toggleTheme } from './theme';
 import { buildTrackSampler, Point, TrackSampler } from './track-path';
 
 // ============================================================
@@ -83,7 +84,9 @@ export function createRaceScreen(
         <button type="button" class="btn speed-btn" data-speed="1">1x</button>
         <button type="button" class="btn speed-btn" data-speed="5">5x</button>
         <button type="button" class="btn speed-btn" data-speed="10">10x</button>
+        <button type="button" class="btn speed-btn" data-speed="20">20x</button>
         <button type="button" class="btn restart-btn">↻ Nueva carrera</button>
+        <button type="button" class="btn theme-btn"></button>
       </div>
     </header>
     <div class="race-body">
@@ -136,6 +139,16 @@ export function createRaceScreen(
   const overlaySeasonBtn = root.querySelector<HTMLButtonElement>('.overlay-season-btn')!;
   if (onSeasonEnd) overlaySeasonBtn.addEventListener('click', onSeasonEnd);
   else overlaySeasonBtn.remove();
+  const themeBtn = root.querySelector<HTMLButtonElement>('.theme-btn')!;
+  themeBtn.textContent = themeButtonLabel();
+  themeBtn.addEventListener('click', () => {
+    toggleTheme();
+  });
+  // The cached track layer uses theme colors: repaint on theme change.
+  onThemeChange(() => {
+    themeBtn.textContent = themeButtonLabel();
+    drawTrackLayer();
+  });
 
   // Mutable screen state (rebuilt on restart).
   let state = buildInitialState();
@@ -214,6 +227,9 @@ export function createRaceScreen(
     const h = trackLayer.height;
     layerCtx.clearRect(0, 0, w, h);
     const roadWidth = Math.max(10, 0.045 * Math.min(w, h));
+    // Track colors follow the active theme (light/dark).
+    const cssVar = (name: string): string =>
+      getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
     const strokeLoop = (width: number, color: string): void => {
       layerCtx.beginPath();
@@ -231,9 +247,9 @@ export function createRaceScreen(
       layerCtx.stroke();
     };
 
-    strokeLoop(roadWidth + Math.max(2, roadWidth * 0.12), '#1b2129'); // kerb border
-    strokeLoop(roadWidth, '#30363d'); // asphalt
-    strokeLoop(1.5, 'rgba(230,237,243,0.35)'); // centerline
+    strokeLoop(roadWidth + Math.max(2, roadWidth * 0.12), cssVar('--track-border'));
+    strokeLoop(roadWidth, cssVar('--track-asphalt'));
+    strokeLoop(1.5, cssVar('--track-line'));
 
     // Start/finish line across the track at t = 0.
     const a = toPx(sampler.pointAt(0.998));
@@ -248,7 +264,7 @@ export function createRaceScreen(
     layerCtx.moveTo(mid.x + nx * roadWidth * 0.55, mid.y + ny * roadWidth * 0.55);
     layerCtx.lineTo(mid.x - nx * roadWidth * 0.55, mid.y - ny * roadWidth * 0.55);
     layerCtx.lineWidth = 4;
-    layerCtx.strokeStyle = '#e6edf3';
+    layerCtx.strokeStyle = cssVar('--track-start');
     layerCtx.stroke();
   }
 
@@ -330,7 +346,9 @@ export function createRaceScreen(
       ctx.fill();
       ctx.globalAlpha = 1;
       ctx.lineWidth = Math.max(1.2, r * 0.3);
-      ctx.strokeStyle = car.isPlayerControlled ? '#ffd700' : 'rgba(0,0,0,0.55)';
+      const cssVar = (name: string): string =>
+        getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      ctx.strokeStyle = car.isPlayerControlled ? '#ffd700' : cssVar('--car-outline');
       ctx.stroke();
     }
   }
@@ -493,7 +511,7 @@ export function createRaceScreen(
 
   for (const btn of speedBtns) {
     btn.addEventListener('click', () => {
-      state.simTimeMultiplier = Number(btn.dataset.speed) as 1 | 5 | 10;
+      state.simTimeMultiplier = Number(btn.dataset.speed) as 1 | 5 | 10 | 20;
       updateControls();
     });
   }
@@ -514,22 +532,24 @@ export function createRaceScreen(
 
     const career = getOrCreateCareer(0);
     let nextRaceLabel = '';
-    // Guard: a race already recorded this season pays nothing on a replay
-    // (protects the last GP from being farmed).
+    const wasLastRace = career.currentRaceIndex >= career.calendar.length - 1;
+    // Replay guard: a race already recorded this season pays nothing and
+    // is not recorded twice — but season progress NEVER freezes.
     const alreadyRecorded = career.seasonResults.some(
       (r) => r.trackId === state.track.id
     );
-    const wasLastRace = career.currentRaceIndex >= career.calendar.length - 1;
-    if (!prizeAwarded && !alreadyRecorded) {
+    if (!prizeAwarded) {
       prizeAwarded = true;
-      career.budget += totalPrize;
-      // Phase 6: record the season result (best of the two player cars).
-      const bestPosition = Math.min(...playerResults.map((r) => r.position));
-      career.seasonResults.push({
-        trackId: state.track.id,
-        position: bestPosition,
-        prize: totalPrize,
-      });
+      if (!alreadyRecorded) {
+        career.budget += totalPrize;
+        // Phase 6: record the season result (best of the two player cars).
+        const bestPosition = Math.min(...playerResults.map((r) => r.position));
+        career.seasonResults.push({
+          trackId: state.track.id,
+          position: bestPosition,
+          prize: totalPrize,
+        });
+      }
       if (!wasLastRace) {
         // Phase 5: advance the calendar after a finished race.
         career.currentRaceIndex += 1;
@@ -541,9 +561,6 @@ export function createRaceScreen(
         overlaySeasonBtn.classList.remove('hidden');
       }
       saveCareer(career);
-    } else {
-      nextRaceLabel = alreadyRecorded ? 'Resultado ya registrado' : '';
-      if (wasLastRace) overlaySeasonBtn.classList.remove('hidden');
     }
 
     resultsListEl.innerHTML = '';

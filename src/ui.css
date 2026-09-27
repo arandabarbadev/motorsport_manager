@@ -1,9 +1,76 @@
-/* Shared UI primitives (buttons) used by every screen. */
+/* ============================================================
+   Shared UI primitives + theme tokens (light/dark) for all
+   screens. Dark is the default; :root[data-theme='light']
+   overrides the variables. Canvas colors read these too.
+   ============================================================ */
+
+:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel-2: #0f141a;
+  --input-bg: #0d1117;
+  --border: #21262d;
+  --border-2: #30363d;
+  --text: #e6edf3;
+  --dim: #8b949e;
+  --accent: #1f6feb;
+  --accent-text: #9ecbff;
+  --accent-bg: #1c2a3a;
+  --accent-bg-border: #2f4a63;
+  --green: #2ea043;
+  --green-text: #3fb950;
+  --amber: #d29922;
+  --red: #da3633;
+  --btn-bg: #21262d;
+  --btn-hover: #30363d;
+  --track-border: #1b2129;
+  --track-asphalt: #30363d;
+  --track-line: rgba(230, 237, 243, 0.35);
+  --track-start: #e6edf3;
+  --car-outline: rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme='light'] {
+  --bg: #eef1f4;
+  --panel: #ffffff;
+  --panel-2: #f6f8fa;
+  --input-bg: #ffffff;
+  --border: #d8dee4;
+  --border-2: #c4ccd4;
+  --text: #1f2328;
+  --dim: #59636e;
+  --accent: #0969da;
+  --accent-text: #0550ae;
+  --accent-bg: #ddf4ff;
+  --accent-bg-border: #54aeff;
+  --green: #1a7f37;
+  --green-text: #1a7f37;
+  --amber: #9a6700;
+  --red: #cf222e;
+  --btn-bg: #f0f3f6;
+  --btn-hover: #e4e8ec;
+  --track-border: #b6bec7;
+  --track-asphalt: #dfe4e9;
+  --track-line: rgba(31, 35, 40, 0.3);
+  --track-start: #1f2328;
+  --car-outline: rgba(31, 35, 40, 0.55);
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+}
+
+.hidden {
+  display: none !important;
+}
 
 .btn {
-  background: #21262d;
-  color: #e6edf3;
-  border: 1px solid #30363d;
+  background: var(--btn-bg);
+  color: var(--text);
+  border: 1px solid var(--border-2);
   border-radius: 8px;
   padding: 8px 12px;
   font-size: 14px;
@@ -12,7 +79,7 @@
 }
 
 .btn:hover:not(:disabled) {
-  background: #30363d;
+  background: var(--btn-hover);
 }
 
 .btn:disabled {
@@ -21,13 +88,15 @@
 }
 
 .btn.active {
-  background: #1f6feb;
-  border-color: #1f6feb;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
 }
 
 .btn.primary {
   background: #238636;
   border-color: #2ea043;
+  color: #ffffff;
 }
 
 .btn.primary:hover:not(:disabled) {

@@ -79,7 +79,7 @@ export interface RaceState {
   drivers: Driver[];
   carSpecs: Car[];
   currentTick: number;
-  simTimeMultiplier: 1 | 5 | 10;
+  simTimeMultiplier: 1 | 5 | 10 | 20;
   isPaused: boolean;
 }
 

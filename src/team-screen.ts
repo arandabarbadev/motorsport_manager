@@ -12,6 +12,13 @@ import {
 } from './roster';
 import { getOrCreateCareer, isSeasonComplete, saveCareer, CareerState } from './career';
 import { ALL_TRACKS, getTrackById } from './tracks-generator';
+import { themeButtonLabel, toggleTheme } from './theme';
+
+// Minimal shape of the browser's beforeinstallprompt event.
+interface InstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: string }>;
+}
 
 // ============================================================
 // TEAM SCREEN (Phase 3): "Mi Equipo" management (name, livery
@@ -39,6 +46,8 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
     <header class="team-header">
       <h1>🏆 Motorsport Manager</h1>
       <div class="budget-chip">Presupuesto: <span class="budget-value"></span> M€</div>
+      <button type="button" class="btn install-btn hidden">📲 Instalar app</button>
+      <button type="button" class="btn theme-btn"></button>
       <button type="button" class="btn primary go-race-btn">🏁 Ir a la carrera</button>
     </header>
     <main class="team-main">
@@ -82,6 +91,29 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
 
   const budgetValueEl = root.querySelector<HTMLElement>('.budget-value')!;
   const goRaceBtn = root.querySelector<HTMLButtonElement>('.go-race-btn')!;
+
+  // Light/dark theme toggle (Instagram-style, persisted).
+  const themeBtn = root.querySelector<HTMLButtonElement>('.theme-btn')!;
+  themeBtn.textContent = themeButtonLabel();
+  themeBtn.addEventListener('click', () => {
+    toggleTheme();
+    themeBtn.textContent = themeButtonLabel();
+  });
+
+  // PWA install: shows when the browser offers installation.
+  const installBtn = root.querySelector<HTMLButtonElement>('.install-btn')!;
+  let installPromptEvent: InstallPromptEvent | null = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installPromptEvent = e as InstallPromptEvent;
+    installBtn.classList.remove('hidden');
+  });
+  installBtn.addEventListener('click', () => {
+    if (!installPromptEvent) return;
+    void installPromptEvent.prompt();
+    installPromptEvent = null;
+    installBtn.classList.add('hidden');
+  });
   // Phase 5/6: the race button shows which GP is next, or the season
   // summary once all 20 races are done.
   if (isSeasonComplete(career)) {

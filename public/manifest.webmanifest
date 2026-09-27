@@ -1,0 +1,19 @@
+{
+  "name": "Motorsport Manager",
+  "short_name": "F1 Manager",
+  "description": "Juego de gestión de escudería de F1: tu equipo, tus pit stops y 20 circuitos reales.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,16 +1,17 @@
 @import './ui.css';
 
 /* ============================================================
-   RACE SCREEN (Phase 2) — dark pit-wall theme, desktop + mobile
+   RACE SCREEN — dark pit-wall theme (light via CSS variables),
+   desktop + mobile
    ============================================================ */
 
 .race-screen {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  color: #e6edf3;
+  color: var(--text);
   font-family: system-ui, 'Segoe UI', sans-serif;
-  background: #0d1117;
+  background: var(--bg);
 }
 
 .race-header {
@@ -19,8 +20,8 @@
   gap: 8px 16px;
   align-items: center;
   padding: 10px 14px;
-  background: #161b22;
-  border-bottom: 1px solid #21262d;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
 }
 
 .race-title {
@@ -32,14 +33,14 @@
 }
 
 .race-lap {
-  color: #9ecbff;
+  color: var(--accent-text);
   font-variant-numeric: tabular-nums;
 }
 
 .race-meta {
   display: flex;
   gap: 12px;
-  color: #8b949e;
+  color: var(--dim);
   font-variant-numeric: tabular-nums;
   margin-right: auto;
 }
@@ -70,14 +71,14 @@
   display: block;
 }
 
-/* Post-race results overlay (Phase 4) */
+/* Post-race results overlay */
 .results-overlay {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(13, 17, 23, 0.72);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
   padding: 16px;
 }
 
@@ -86,8 +87,8 @@
 }
 
 .results-panel {
-  background: #161b22;
-  border: 1px solid #30363d;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
   border-radius: 14px;
   padding: 18px 20px;
   width: min(92vw, 380px);
@@ -104,18 +105,18 @@
   grid-template-columns: 2.8em 1fr auto;
   gap: 10px;
   padding: 6px 0;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
   font-size: 14px;
   align-items: center;
 }
 
 .result-pos {
-  color: #9ecbff;
+  color: var(--accent-text);
   font-weight: 700;
 }
 
 .result-prize {
-  color: #3fb950;
+  color: var(--green-text);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -124,7 +125,7 @@
   margin: 12px 0;
   font-size: 15px;
   font-weight: 700;
-  color: #9ecbff;
+  color: var(--accent-text);
 }
 
 .results-actions {
@@ -140,8 +141,8 @@
 .hud {
   width: 340px;
   overflow-y: auto;
-  background: #0f141a;
-  border-left: 1px solid #21262d;
+  background: var(--panel-2);
+  border-left: 1px solid var(--border);
   padding: 10px 12px;
   box-sizing: border-box;
 }
@@ -150,13 +151,13 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #8b949e;
+  color: var(--dim);
   margin: 10px 0 6px;
 }
 
 .pit-box {
-  background: #161b22;
-  border: 1px solid #21262d;
+  background: var(--panel);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px 10px;
   margin-bottom: 8px;
@@ -178,7 +179,7 @@
 
 .pit-status {
   font-size: 12px;
-  color: #8b949e;
+  color: var(--dim);
   margin-top: 6px;
 }
 
@@ -200,11 +201,11 @@
 }
 
 .standing-row.player {
-  background: #1c2a3a;
+  background: var(--accent-bg);
 }
 
 .standing-row .pos {
-  color: #8b949e;
+  color: var(--dim);
 }
 
 .tcolor {
@@ -221,7 +222,7 @@
 }
 
 .gap {
-  color: #8b949e;
+  color: var(--dim);
   text-align: right;
 }
 
@@ -231,24 +232,24 @@
 }
 
 .tyre.soft {
-  color: #ff6b6b;
+  color: #e05252;
 }
 
 .tyre.medium {
-  color: #f5c542;
+  color: #b08800;
 }
 
 .tyre.hard {
-  color: #c9d1d9;
+  color: var(--text);
 }
 
 .tyre.wet {
-  color: #58a6ff;
+  color: var(--accent);
 }
 
 .wear {
   height: 8px;
-  background: #21262d;
+  background: var(--border);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -257,15 +258,15 @@
   display: block;
   height: 100%;
   width: 0;
-  background: #2ea043;
+  background: var(--green);
 }
 
 .wear-fill.warn {
-  background: #d29922;
+  background: var(--amber);
 }
 
 .wear-fill.danger {
-  background: #da3633;
+  background: var(--red);
 }
 
 .pitflag {
@@ -293,6 +294,6 @@
     width: auto;
     flex: 1;
     border-left: none;
-    border-top: 1px solid #21262d;
+    border-top: 1px solid var(--border);
   }
 }

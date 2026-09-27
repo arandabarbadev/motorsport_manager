@@ -1,15 +1,15 @@
 @import './ui.css';
 
 /* ============================================================
-   TEAM SCREEN (Phase 3) — "Mi Equipo" + rival editor
+   TEAM SCREEN — "Mi Equipo" + rival editor (light/dark via vars)
    ============================================================ */
 
 .team-screen {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #0d1117;
-  color: #e6edf3;
+  background: var(--bg);
+  color: var(--text);
   font-family: system-ui, 'Segoe UI', sans-serif;
 }
 
@@ -19,8 +19,8 @@
   gap: 10px 16px;
   align-items: center;
   padding: 12px 16px;
-  background: #161b22;
-  border-bottom: 1px solid #21262d;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
 }
 
 .team-header h1 {
@@ -30,8 +30,9 @@
 }
 
 .budget-chip {
-  background: #1c2a3a;
-  border: 1px solid #2f4a63;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bg-border);
+  color: var(--text);
   padding: 6px 12px;
   border-radius: 999px;
   font-variant-numeric: tabular-nums;
@@ -39,7 +40,7 @@
 
 .budget-value {
   font-weight: 700;
-  color: #9ecbff;
+  color: var(--accent-text);
 }
 
 .team-main {
@@ -53,8 +54,8 @@
 }
 
 .card {
-  background: #161b22;
-  border: 1px solid #21262d;
+  background: var(--panel);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px 16px;
 }
@@ -74,7 +75,7 @@
 .card h3 {
   margin: 14px 0 8px;
   font-size: 12px;
-  color: #8b949e;
+  color: var(--dim);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -91,15 +92,15 @@
   flex-direction: column;
   gap: 4px;
   font-size: 13px;
-  color: #8b949e;
+  color: var(--dim);
   flex: 1;
   min-width: 150px;
 }
 
 .in {
-  background: #0d1117;
-  border: 1px solid #30363d;
-  color: #e6edf3;
+  background: var(--input-bg);
+  border: 1px solid var(--border-2);
+  color: var(--text);
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 14px;
@@ -121,7 +122,7 @@
   gap: 10px;
   align-items: center;
   padding: 8px 0;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
 }
 
 .upgrade-row:last-child {
@@ -134,7 +135,7 @@
 
 .stat-value {
   font-weight: 700;
-  color: #9ecbff;
+  color: var(--accent-text);
   font-variant-numeric: tabular-nums;
   min-width: 2.2em;
   text-align: right;
@@ -145,7 +146,7 @@
   grid-template-columns: minmax(150px, 1.2fr) 1fr 1fr;
   gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--border);
   align-items: center;
 }
 
@@ -165,7 +166,7 @@
   border-radius: 50%;
   display: inline-block;
   flex: none;
-  border: 1px solid #30363d;
+  border: 1px solid var(--border-2);
 }
 
 @media (max-width: 860px) {

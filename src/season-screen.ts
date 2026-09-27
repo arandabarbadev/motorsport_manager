@@ -1,6 +1,7 @@
 import './season-screen.css';
 import { getOrCreateCareer, isSeasonComplete, saveCareer } from './career';
 import { getTrackById } from './tracks-generator';
+import { themeButtonLabel, toggleTheme } from './theme';
 
 // ============================================================
 // SEASON SCREEN (Phase 6): end-of-season summary. Lists every
@@ -22,6 +23,15 @@ export function createSeasonScreen(container: HTMLElement, onExit: () => void): 
   header.innerHTML = `<h1>🏆 Temporada ${career.seasonNumber} ${
     isSeasonComplete(career) ? 'completada' : '— resumen parcial'
   }</h1>`;
+  const themeBtn = document.createElement('button');
+  themeBtn.type = 'button';
+  themeBtn.className = 'btn';
+  themeBtn.textContent = themeButtonLabel();
+  themeBtn.addEventListener('click', () => {
+    toggleTheme();
+    themeBtn.textContent = themeButtonLabel();
+  });
+  header.appendChild(themeBtn);
   root.appendChild(header);
 
   const main = document.createElement('main');

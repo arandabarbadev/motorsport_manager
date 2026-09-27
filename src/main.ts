@@ -1,3 +1,4 @@
+import { initTheme } from './theme';
 import { createTeamScreen } from './team-screen';
 import { createRaceScreen } from './race-screen';
 import { createSeasonScreen } from './season-screen';
@@ -9,6 +10,8 @@ import { ALL_TRACKS, getTrackById } from './tracks-generator';
 // Phase 6 entry point: management first; "Ir a la carrera" runs the
 // calendar's current GP, and a completed season opens the summary.
 const app = document.getElementById('app')!;
+
+initTheme();
 
 function showTeamScreen(): void {
   createTeamScreen(app, showRaceScreen);
@@ -41,3 +44,11 @@ function showRaceScreen(): void {
 }
 
 showTeamScreen();
+
+// PWA: register the hand-written service worker so the game can be
+// installed and played offline (only in the production build).
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => undefined);
+  });
+}
