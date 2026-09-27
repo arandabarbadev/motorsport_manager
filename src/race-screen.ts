@@ -60,7 +60,8 @@ interface PitBox {
 export function createRaceScreen(
   container: HTMLElement,
   buildInitialState: () => RaceState,
-  onExit?: () => void
+  onExit?: () => void,
+  onSeasonEnd?: () => void
 ): void {
   container.innerHTML = '';
 
@@ -94,7 +95,8 @@ export function createRaceScreen(
             <div class="results-list"></div>
             <div class="results-total"></div>
             <div class="results-actions">
-              <button type="button" class="btn primary overlay-exit-btn">← Mi Equipo</button>
+              <button type="button" class="btn primary overlay-season-btn hidden">🏆 Ver resumen de temporada</button>
+              <button type="button" class="btn overlay-exit-btn">← Mi Equipo</button>
             </div>
           </div>
         </div>
@@ -131,6 +133,9 @@ export function createRaceScreen(
   const overlayExitBtn = root.querySelector<HTMLButtonElement>('.overlay-exit-btn')!;
   if (onExit) overlayExitBtn.addEventListener('click', onExit);
   else overlayExitBtn.remove();
+  const overlaySeasonBtn = root.querySelector<HTMLButtonElement>('.overlay-season-btn')!;
+  if (onSeasonEnd) overlaySeasonBtn.addEventListener('click', onSeasonEnd);
+  else overlaySeasonBtn.remove();
 
   // Mutable screen state (rebuilt on restart).
   let state = buildInitialState();
@@ -166,6 +171,7 @@ export function createRaceScreen(
     finished = false;
     lastTickAt = performance.now();
     overlayEl.classList.add('hidden');
+    overlaySeasonBtn.classList.add('hidden');
     prizeAwarded = false;
     buildStandings();
     buildPitPanel();
@@ -508,19 +514,36 @@ export function createRaceScreen(
 
     const career = getOrCreateCareer(0);
     let nextRaceLabel = '';
-    if (!prizeAwarded) {
+    // Guard: a race already recorded this season pays nothing on a replay
+    // (protects the last GP from being farmed).
+    const alreadyRecorded = career.seasonResults.some(
+      (r) => r.trackId === state.track.id
+    );
+    const wasLastRace = career.currentRaceIndex >= career.calendar.length - 1;
+    if (!prizeAwarded && !alreadyRecorded) {
       prizeAwarded = true;
       career.budget += totalPrize;
-      // Phase 5: advance the season calendar after a finished race.
-      // (The season's last race gets its own end screen in Phase 6.)
-      if (career.currentRaceIndex < career.calendar.length - 1) {
+      // Phase 6: record the season result (best of the two player cars).
+      const bestPosition = Math.min(...playerResults.map((r) => r.position));
+      career.seasonResults.push({
+        trackId: state.track.id,
+        position: bestPosition,
+        prize: totalPrize,
+      });
+      if (!wasLastRace) {
+        // Phase 5: advance the calendar after a finished race.
         career.currentRaceIndex += 1;
         const next = getTrackById(career.calendar[career.currentRaceIndex]);
         nextRaceLabel = next ? `Siguiente GP: ${next.name}` : '';
       } else {
-        nextRaceLabel = 'Última carrera de la temporada';
+        // Phase 6: last race of the season -> do NOT advance.
+        nextRaceLabel = '🏆 Temporada completada';
+        overlaySeasonBtn.classList.remove('hidden');
       }
       saveCareer(career);
+    } else {
+      nextRaceLabel = alreadyRecorded ? 'Resultado ya registrado' : '';
+      if (wasLastRace) overlaySeasonBtn.classList.remove('hidden');
     }
 
     resultsListEl.innerHTML = '';

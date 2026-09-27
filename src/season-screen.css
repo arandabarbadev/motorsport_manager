@@ -1,0 +1,108 @@
+@import './ui.css';
+
+/* ============================================================
+   SEASON SCREEN (Phase 6) — end-of-season summary
+   ============================================================ */
+
+.season-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: system-ui, 'Segoe UI', sans-serif;
+}
+
+.season-header {
+  padding: 14px 18px;
+  background: #161b22;
+  border-bottom: 1px solid #21262d;
+}
+
+.season-header h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.season-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.card {
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 12px;
+  padding: 16px 18px;
+  width: min(96vw, 480px);
+  box-sizing: border-box;
+}
+
+.season-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.season-row {
+  display: grid;
+  grid-template-columns: 2.8em 1fr 3em auto;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid #21262d;
+  font-size: 14px;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.season-row:last-child {
+  border-bottom: none;
+}
+
+.season-row .round {
+  color: #8b949e;
+}
+
+.season-row .pos {
+  color: #9ecbff;
+  font-weight: 700;
+}
+
+.season-row .prize {
+  color: #3fb950;
+  font-weight: 700;
+}
+
+.season-list .empty {
+  color: #8b949e;
+  padding: 12px 0;
+  font-size: 14px;
+}
+
+.season-totals {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #30363d;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.season-totals strong {
+  color: #9ecbff;
+}
+
+.season-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.season-actions .btn {
+  flex: 1;
+}

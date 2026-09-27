@@ -10,7 +10,7 @@ import {
   Roster,
   TeamEntry,
 } from './roster';
-import { getOrCreateCareer, saveCareer, CareerState } from './career';
+import { getOrCreateCareer, isSeasonComplete, saveCareer, CareerState } from './career';
 import { ALL_TRACKS, getTrackById } from './tracks-generator';
 
 // ============================================================
@@ -82,13 +82,18 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
 
   const budgetValueEl = root.querySelector<HTMLElement>('.budget-value')!;
   const goRaceBtn = root.querySelector<HTMLButtonElement>('.go-race-btn')!;
-  // Phase 5: the race button shows which GP of the season is next.
-  const currentTrack =
-    getTrackById(career.calendar[career.currentRaceIndex]) ?? ALL_TRACKS[0];
-  goRaceBtn.textContent = `🏁 Ir a la carrera — Ronda ${Math.min(
-    career.currentRaceIndex + 1,
-    career.calendar.length
-  )}/${career.calendar.length}: ${currentTrack.name}`;
+  // Phase 5/6: the race button shows which GP is next, or the season
+  // summary once all 20 races are done.
+  if (isSeasonComplete(career)) {
+    goRaceBtn.textContent = '🏆 Ver resumen de temporada';
+  } else {
+    const currentTrack =
+      getTrackById(career.calendar[career.currentRaceIndex]) ?? ALL_TRACKS[0];
+    goRaceBtn.textContent = `🏁 Ir a la carrera — Ronda ${Math.min(
+      career.currentRaceIndex + 1,
+      career.calendar.length
+    )}/${career.calendar.length}: ${currentTrack.name}`;
+  }
   const teamNameInput = root.querySelector<HTMLInputElement>('.team-name-input')!;
   const teamColorInput = root.querySelector<HTMLInputElement>('.team-color-input')!;
   const upgradeList = root.querySelector<HTMLElement>('.upgrade-list')!;
