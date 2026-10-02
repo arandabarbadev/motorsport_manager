@@ -53,6 +53,15 @@ export async function login(email: string, password: string): Promise<void> {
   await pullCloudState(currentUid);
 }
 
+// One-click Google sign-in (provider must be enabled in the console).
+export async function loginWithGoogle(): Promise<void> {
+  if (!authMod || !auth) throw new Error('Firebase sin configurar');
+  const provider = new authMod.GoogleAuthProvider();
+  const cred = await authMod.signInWithPopup(auth, provider);
+  currentUid = cred.user.uid;
+  await pullCloudState(currentUid);
+}
+
 export async function register(email: string, password: string): Promise<void> {
   if (!authMod || !auth) throw new Error('Firebase sin configurar');
   const cred = await authMod.createUserWithEmailAndPassword(auth, email, password);

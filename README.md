@@ -1,6 +1,6 @@
-# Motorsport Manager ⚙️🏁
+# Motorsport Manager
 
-Juego de gestión de escudería de F1 estilo *Motorsport Manager*: gestión de equipo (presupuesto, mejoras del coche) y una pantalla de carrera 2D vista desde arriba en tiempo real — 20 puntos de colores sobre el circuito, desgaste de neumáticos visible y pit stops que decide el jugador mientras la carrera corre.
+Juego de gestión de escudería de F1 estilo *Motorsport Manager*: gestión de equipo (presupuesto, patrocinadores, desarrollos del coche, sede con personal) y una pantalla de carrera 2D vista desde arriba en tiempo real — 20 coches sobre circuitos reales, desgaste de neumáticos, accidentes con banderas y pit stops que decide el jugador mientras la carrera corre.
 
 ## Estado del desarrollo
 
@@ -13,15 +13,15 @@ Juego de gestión de escudería de F1 estilo *Motorsport Manager*: gestión de e
 
 ## Extras (después del plan de 6 fases)
 
-- 🌓 **Tema claro/oscuro** persistente (como Instagram) en todas las pantallas
-- 📲 **Instalable como app** (PWA con service worker propio, funciona sin internet)
-- 🔐 **Login con Firebase** (email/contraseña, partida sincronizada en la nube) + modo local
-- 🚗 **9 categorías de desarrollo del coche** (aero, alerones, motor, electrónica, chasis, suspensión, neumáticos, seguridad, volante)
-- 🏛️ **Sede del equipo**: mecánicos (boxes más rápidos), ingenieros (mejoras más baratas) y comerciales (más patrocinio)
-- 💼 **100 patrocinadores falsos** (0,5 a 5 M€/carrera; los mejores exigen resultados)
-- 💥 **Accidentes y averías** con **banderas amarillas/rojas** y bandera a cuadros al terminar
-- 💰 **Finanzas de carrera**: premios + patrocinio − sueldos − alquiler
-- ⚡ Velocidades 1x/5x/10x/**20x**
+- Tema claro/oscuro persistente en todas las pantallas
+- Instalable como app (PWA con service worker propio, funciona sin internet)
+- Login con Firebase (email/contraseña y Google, partida sincronizada en la nube) + modo local
+- 9 categorías de desarrollo del coche (aero, alerones, motor, electrónica, chasis, suspensión, neumáticos, seguridad, volante)
+- Sede del equipo: mecánicos (boxes más rápidos), ingenieros (mejoras más baratas) y comerciales (más patrocinio)
+- 100 patrocinadores falsos (0,5 a 5 M€/carrera; los mejores exigen resultados)
+- Accidentes y averías con banderas amarillas/rojas y bandera a cuadros al terminar
+- Finanzas de carrera: premios + patrocinio − sueldos − alquiler
+- Velocidades 1x/5x/10x/20x y botón de reinicio total de la partida
 
 ## Stack
 
@@ -37,6 +37,10 @@ TypeScript + Vite + npm. Funciona en escritorio y móvil. Sin framework de UI. P
 | `npm run tracks` | tabla de las 20 pistas de la temporada |
 | `npm run maps` | dibuja los 20 circuitos en ASCII en la consola |
 | `npm run build` | compila la versión de producción |
+
+## Login con Firebase
+
+Para activar el login y la sincronización en la nube: copia `src/firebase-config.example.ts` como `src/firebase-config.ts` y pega los valores de tu proyecto de Firebase (ese archivo está en `.gitignore` para que nunca se suban tus claves). En la consola activa Authentication (correo/contraseña y/o Google) y Firestore Database.
 
 ## Datos de circuitos
 

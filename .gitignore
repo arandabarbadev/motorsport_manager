@@ -1,3 +1,4 @@
 node_modules/
 dist/
 harness-out/
+src/firebase-config.ts

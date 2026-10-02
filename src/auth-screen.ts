@@ -1,5 +1,5 @@
 import './auth-screen.css';
-import { firebaseConfigured, login, register } from './cloud';
+import { firebaseConfigured, login, loginWithGoogle, register } from './cloud';
 
 // ============================================================
 // AUTH SCREEN: email/password login (Firebase) like Rafa's other
@@ -13,7 +13,7 @@ export function createAuthScreen(container: HTMLElement, onDone: () => void): vo
   root.className = 'auth-screen';
   root.innerHTML = `
     <div class="auth-card">
-      <h1>🏎️ Motorsport Manager</h1>
+      <h1>Motorsport Manager</h1>
       <p class="auth-sub">Entra con tu cuenta para guardar tu partida en la nube</p>
       <label class="field">Email
         <input class="in auth-email" type="email" autocomplete="email" />
@@ -26,11 +26,12 @@ export function createAuthScreen(container: HTMLElement, onDone: () => void): vo
         <button type="button" class="btn primary auth-login-btn">Entrar</button>
         <button type="button" class="btn auth-register-btn">Registrarse</button>
       </div>
+      <button type="button" class="btn auth-google-btn">Continuar con Google</button>
       <button type="button" class="btn auth-local-btn">Continuar sin cuenta (solo este navegador)</button>
       ${
         firebaseConfigured
           ? ''
-          : '<p class="auth-note">⚠️ Firebase sin configurar: pega tu configuración en <code>src/firebase-config.ts</code> para activar el login.</p>'
+          : '<p class="auth-note">Firebase sin configurar: pega tu configuración en <code>src/firebase-config.ts</code> para activar el login.</p>'
       }
     </div>`;
   container.appendChild(root);
@@ -60,6 +61,21 @@ export function createAuthScreen(container: HTMLElement, onDone: () => void): vo
 
   loginBtn.addEventListener('click', () => runAuth(login));
   registerBtn.addEventListener('click', () => runAuth(register));
+  const googleBtn = root.querySelector<HTMLButtonElement>('.auth-google-btn')!;
+  googleBtn.addEventListener('click', () => {
+    errorEl.textContent = '';
+    if (!firebaseConfigured) {
+      errorEl.textContent = 'Firebase sin configurar (usa el modo local por ahora).';
+      return;
+    }
+    googleBtn.disabled = true;
+    loginWithGoogle()
+      .then(() => onDone())
+      .catch((err: Error) => {
+        errorEl.textContent = err.message ?? 'Error';
+        googleBtn.disabled = false;
+      });
+  });
   root
     .querySelector<HTMLButtonElement>('.auth-local-btn')!
     .addEventListener('click', () => onDone());

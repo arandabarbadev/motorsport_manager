@@ -21,7 +21,7 @@ export function createSeasonScreen(container: HTMLElement, onExit: () => void): 
 
   const header = document.createElement('header');
   header.className = 'season-header';
-  header.innerHTML = `<h1>🏆 Temporada ${career.seasonNumber} ${
+  header.innerHTML = `<h1>Temporada ${career.seasonNumber} ${
     isSeasonComplete(career) ? 'completada' : '— resumen parcial'
   }</h1>`;
   const themeBtn = document.createElement('button');
@@ -74,7 +74,7 @@ export function createSeasonScreen(container: HTMLElement, onExit: () => void): 
   const newSeasonBtn = document.createElement('button');
   newSeasonBtn.type = 'button';
   newSeasonBtn.className = 'btn primary';
-  newSeasonBtn.textContent = '🏁 Empezar temporada nueva';
+  newSeasonBtn.textContent = 'Empezar temporada nueva';
   newSeasonBtn.addEventListener('click', () => {
     // Next season: index and results reset; budget and car upgrades
     // stay untouched.
@@ -88,7 +88,7 @@ export function createSeasonScreen(container: HTMLElement, onExit: () => void): 
   const backBtn = document.createElement('button');
   backBtn.type = 'button';
   backBtn.className = 'btn';
-  backBtn.textContent = '← Mi Equipo';
+  backBtn.textContent = 'Mi Equipo';
   backBtn.addEventListener('click', () => onExit());
   actions.append(newSeasonBtn, backBtn);
   card.appendChild(actions);

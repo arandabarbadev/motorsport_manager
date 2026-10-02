@@ -56,8 +56,13 @@
   flex: 1;
 }
 
+.auth-google-btn,
 .auth-local-btn {
   width: 100%;
+}
+
+.auth-google-btn {
+  font-weight: 600;
 }
 
 .auth-note {

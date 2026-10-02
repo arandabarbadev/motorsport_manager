@@ -32,7 +32,7 @@ export function toggleTheme(): void {
 
 // Label for toggle buttons: shows what you would switch to.
 export function themeButtonLabel(): string {
-  return currentTheme() === 'dark' ? '☀️ Claro' : '🌙 Oscuro';
+  return currentTheme() === 'dark' ? 'Claro' : 'Oscuro';
 }
 
 // React to theme changes (e.g. the canvas track layer repaints).

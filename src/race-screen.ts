@@ -81,13 +81,13 @@ export function createRaceScreen(
         <span class="race-clock"></span>
       </div>
       <div class="race-controls">
-        <button type="button" class="btn exit-btn">← Mi Equipo</button>
+        <button type="button" class="btn exit-btn">Mi Equipo</button>
         <button type="button" class="btn pause-btn"></button>
         <button type="button" class="btn speed-btn" data-speed="1">1x</button>
         <button type="button" class="btn speed-btn" data-speed="5">5x</button>
         <button type="button" class="btn speed-btn" data-speed="10">10x</button>
         <button type="button" class="btn speed-btn" data-speed="20">20x</button>
-        <button type="button" class="btn restart-btn">↻ Nueva carrera</button>
+        <button type="button" class="btn restart-btn">Nueva carrera</button>
         <button type="button" class="btn theme-btn"></button>
       </div>
     </header>
@@ -97,13 +97,13 @@ export function createRaceScreen(
         <div class="flag-indicator hidden"></div>
         <div class="results-overlay hidden">
           <div class="results-panel">
-            <h2>🏁 Carrera terminada</h2>
+            <h2>Carrera terminada</h2>
             <div class="results-list"></div>
             <div class="finance-list"></div>
             <div class="results-total"></div>
             <div class="results-actions">
-              <button type="button" class="btn primary overlay-season-btn hidden">🏆 Ver resumen de temporada</button>
-              <button type="button" class="btn overlay-exit-btn">← Mi Equipo</button>
+              <button type="button" class="btn primary overlay-season-btn hidden">Ver resumen de temporada</button>
+              <button type="button" class="btn overlay-exit-btn">Mi Equipo</button>
             </div>
           </div>
         </div>
@@ -386,11 +386,11 @@ export function createRaceScreen(
         <span class="gap"></span>
         <span class="tyre"></span>
         <span class="wear"><span class="wear-fill"></span></span>
-        <span class="pitflag">🔧</span>`;
+        <span class="pitflag">BOX</span>`;
       const team = teamById(car.teamId);
       (li.querySelector<HTMLElement>('.tcolor')!).style.background = team.color;
       (li.querySelector<HTMLElement>('.dname')!).textContent =
-        driverById(car.driverId).name + (car.isPlayerControlled ? ' ★' : '');
+        driverById(car.driverId).name + (car.isPlayerControlled ? ' (tú)' : '');
       rows.set(car.driverId, {
         root: li,
         pos: li.querySelector<HTMLElement>('.pos')!,
@@ -422,7 +422,7 @@ export function createRaceScreen(
       row.root.classList.toggle('pitting', car.status === 'inPit');
       row.root.classList.toggle('dnf', car.status === 'dnf');
       row.pitflag.textContent =
-        car.status === 'inPit' ? `🔧${Math.ceil(car.pitTimerSec)}s` : '🔧';
+        car.status === 'inPit' ? `BOX ${Math.ceil(car.pitTimerSec)}s` : 'BOX';
     }
     for (const box of pitBoxes) {
       const car = state.cars.find((c) => c.driverId === box.carDriverId)!;
@@ -455,13 +455,13 @@ export function createRaceScreen(
     weatherEl.textContent = WEATHER_LABEL[state.weather];
     // Race control flags, top-left over the track.
     if (finished) {
-      flagEl.textContent = '🏁 ¡BANDERA A CUADROS!';
+      flagEl.textContent = '¡BANDERA A CUADROS!';
       flagEl.className = 'flag-indicator checkered';
     } else if (state.flag === 'red') {
-      flagEl.textContent = `🔴 BANDERA ROJA (${Math.ceil(state.flagTimerSec)}s)`;
+      flagEl.textContent = `BANDERA ROJA (${Math.ceil(state.flagTimerSec)}s)`;
       flagEl.className = 'flag-indicator red';
     } else if (state.flag === 'yellow') {
-      flagEl.textContent = `🟡 BANDERA AMARILLA (${Math.ceil(state.flagTimerSec)}s)`;
+      flagEl.textContent = `BANDERA AMARILLA (${Math.ceil(state.flagTimerSec)}s)`;
       flagEl.className = 'flag-indicator yellow';
     } else {
       flagEl.className = 'flag-indicator hidden';
@@ -522,7 +522,7 @@ export function createRaceScreen(
   // ---- Controls ----
 
   function updateControls(): void {
-    pauseBtn.textContent = state.isPaused ? '▶ Seguir' : '⏸ Pausa';
+    pauseBtn.textContent = state.isPaused ? 'Seguir' : 'Pausa';
     pauseBtn.disabled = finished;
     // After the chequered flag the calendar moves on: no restart of
     // the same GP (the next one is entered from "Mi Equipo").
@@ -611,7 +611,7 @@ export function createRaceScreen(
         nextRaceLabel = next ? `Siguiente GP: ${next.name}` : '';
       } else {
         // Phase 6: last race of the season -> do NOT advance.
-        nextRaceLabel = '🏆 Temporada completada';
+        nextRaceLabel = 'Temporada completada';
         overlaySeasonBtn.classList.remove('hidden');
       }
       saveCareer(career);

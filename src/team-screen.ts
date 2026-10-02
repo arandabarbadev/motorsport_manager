@@ -13,6 +13,7 @@ import {
   TeamEntry,
 } from './roster';
 import {
+  createDefaultCareer,
   getOrCreateCareer,
   isSeasonComplete,
   saveCareer,
@@ -39,15 +40,15 @@ type StaffKey = 'mechanics' | 'engineers' | 'commercial';
 
 const STAFF_INFO: Record<StaffKey, { label: string; effect: (level: number) => string }> = {
   mechanics: {
-    label: '🧰 Mecánicos',
+    label: 'Mecánicos',
     effect: (l) => `Boxes: −${((l - 1) * 1.5).toFixed(1).replace('.', ',')} s por parada`,
   },
   engineers: {
-    label: '👨‍🔬 Ingenieros',
+    label: 'Ingenieros',
     effect: (l) => `Mejoras del coche: −${(l - 1) * 5}% de coste`,
   },
   commercial: {
-    label: '💼 Comerciales',
+    label: 'Comerciales',
     effect: (l) => `Ingresos de patrocinio: +${(l - 1) * 5}%`,
   },
 };
@@ -67,17 +68,17 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
   root.innerHTML = `
     <header class="team-header">
       <nav class="nav-tabs">
-        <button type="button" class="btn nav-btn active" data-tab="team">🚗 Mi Equipo</button>
-        <button type="button" class="btn nav-btn" data-tab="hq">🏛️ Sede</button>
-        <button type="button" class="btn nav-btn" data-tab="rivals">🏁 Rivales</button>
-        <button type="button" class="btn nav-btn" data-tab="sponsors">💼 Patrocinadores</button>
+        <button type="button" class="btn nav-btn active" data-tab="team">Mi Equipo</button>
+        <button type="button" class="btn nav-btn" data-tab="hq">Sede</button>
+        <button type="button" class="btn nav-btn" data-tab="rivals">Rivales</button>
+        <button type="button" class="btn nav-btn" data-tab="sponsors">Patrocinadores</button>
       </nav>
       <div class="header-right">
         <div class="budget-chip"><span class="budget-value"></span> M</div>
-        <button type="button" class="btn reset-season-btn" title="Volver a la ronda 1 de esta temporada (conservas dinero, mejoras y sede)">↺ Temporada</button>
+        <button type="button" class="btn reset-season-btn" title="Empezar de cero: reinicia dinero, patrocinador, desarrollos, sede y temporada">Reiniciar</button>
         <button type="button" class="btn theme-btn"></button>
-        <button type="button" class="btn logout-btn hidden">🚪 Salir</button>
-        <button type="button" class="btn primary go-race-btn">🏁 Carrera</button>
+        <button type="button" class="btn logout-btn hidden">Salir</button>
+        <button type="button" class="btn primary go-race-btn">Carrera</button>
       </div>
     </header>
     <main class="team-main">
@@ -139,24 +140,24 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
   resetBtn.addEventListener('click', () => {
     if (
       !window.confirm(
-        '¿Reiniciar la TEMPORADA? Vuelves a la ronda 1 de la temporada actual. Conservas dinero, mejoras del coche y sede.'
+        '¿Empezar de CERO? Se reinicia TODO: dinero (350 M), patrocinador, desarrollos del coche, sede y temporada. Solo se conservan los nombres de tu equipo y pilotos.'
       )
     ) {
       return;
     }
-    career.seasonResults = [];
-    career.currentRaceIndex = 0;
+    career = createDefaultCareer(); // fresh economy, staff, sponsor and season
+    playerEntry().developments = {}; // car developments back to zero
     syncAll();
     refresh();
   });
 
   function updateRaceButton(): void {
     if (isSeasonComplete(career)) {
-      goRaceBtn.textContent = '🏆 Ver temporada';
+      goRaceBtn.textContent = 'Ver temporada';
     } else {
       const track =
         getTrackById(career.calendar[career.currentRaceIndex]) ?? ALL_TRACKS[0];
-      goRaceBtn.textContent = `🏁 Carrera · R${Math.min(
+      goRaceBtn.textContent = `Carrera · R${Math.min(
         career.currentRaceIndex + 1,
         career.calendar.length
       )}: ${track.name}`;
@@ -273,7 +274,7 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
   // ---- Tab: Sede ----
   function renderHqTab(): void {
     const title = document.createElement('h2');
-    title.textContent = '🏛️ Sede del equipo';
+    title.textContent = 'Sede del equipo';
     panel.appendChild(title);
 
     const staffList = document.createElement('div');
@@ -291,7 +292,7 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
         <div class="staff-effect">${info.effect(level)}</div>
         <button type="button" class="btn staff-btn"></button>`;
       const levelEl = row.querySelector<HTMLElement>('.staff-level')!;
-      levelEl.textContent = '▮'.repeat(level) + '▯'.repeat(STAFF_MAX_LEVEL - level);
+      levelEl.textContent = `Nivel ${level}/${STAFF_MAX_LEVEL}`;
       const btn = row.querySelector<HTMLButtonElement>('.staff-btn')!;
       const cost = staffUpgradeCost(level);
       const maxed = level >= STAFF_MAX_LEVEL;
@@ -323,7 +324,7 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
     const regenBtn = document.createElement('button');
     regenBtn.type = 'button';
     regenBtn.className = 'btn';
-    regenBtn.textContent = '🎲 Generar parrilla nueva';
+    regenBtn.textContent = 'Generar parrilla nueva';
     title.appendChild(regenBtn);
     panel.appendChild(title);
 
@@ -383,7 +384,7 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
   // ---- Tab: Patrocinadores ----
   function renderSponsorsTab(): void {
     const title = document.createElement('h2');
-    title.textContent = '💼 Patrocinadores';
+    title.textContent = 'Patrocinadores';
     panel.appendChild(title);
 
     const active = getSponsor(career.sponsorId);
@@ -414,7 +415,7 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
       const btn = row.querySelector<HTMLButtonElement>('.sponsor-btn')!;
       const isActive = career.sponsorId === sponsor.id;
       const unlocked = isSponsorUnlocked(sponsor, career);
-      btn.textContent = isActive ? '✅ Activo' : unlocked ? 'Firmar' : `🔒 P${sponsor.requiredPosition}`;
+      btn.textContent = isActive ? 'Activo' : unlocked ? 'Firmar' : `P${sponsor.requiredPosition}`;
       btn.disabled = isActive || !unlocked;
       btn.addEventListener('click', () => {
         if (isActive || !unlocked) return;
