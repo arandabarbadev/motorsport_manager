@@ -23,6 +23,10 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      # firebase-config.ts is gitignored (it holds real keys): use the
+      # empty template so the public build works in local mode.
+      - name: Use the example Firebase config
+        run: cp src/firebase-config.example.ts src/firebase-config.ts
       - run: npm ci
       - run: npm run build
       - uses: actions/configure-pages@v5
