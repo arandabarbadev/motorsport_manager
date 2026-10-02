@@ -23,10 +23,18 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      # firebase-config.ts is gitignored (it holds real keys): use the
-      # empty template so the public build works in local mode.
-      - name: Use the example Firebase config
-        run: cp src/firebase-config.example.ts src/firebase-config.ts
+      # firebase-config.ts is gitignored (it holds real keys): restore it
+      # from the FIREBASE_CONFIG repository secret when available, or fall
+      # back to the empty template (public build in local mode).
+      - name: Restore Firebase config (secret or template)
+        env:
+          FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
+        run: |
+          if [ -n "$FIREBASE_CONFIG" ]; then
+            printf '%s\nexport const FIREBASE_CONFIG = firebaseConfig;\n' "$FIREBASE_CONFIG" > src/firebase-config.ts
+          else
+            cp src/firebase-config.example.ts src/firebase-config.ts
+          fi
       - run: npm ci
       - run: npm run build
       - uses: actions/configure-pages@v5
