@@ -1,4 +1,5 @@
 import { initTheme } from './theme';
+import { createAuthScreen } from './auth-screen';
 import { createTeamScreen } from './team-screen';
 import { createRaceScreen } from './race-screen';
 import { createSeasonScreen } from './season-screen';
@@ -6,9 +7,11 @@ import { loadRoster } from './roster';
 import { buildRaceStateFromRoster } from './race-builder';
 import { getOrCreateCareer, isSeasonComplete } from './career';
 import { ALL_TRACKS, getTrackById } from './tracks-generator';
+import { firebaseConfigured, initCloud, watchAuth } from './cloud';
 
-// Phase 6 entry point: management first; "Ir a la carrera" runs the
-// calendar's current GP, and a completed season opens the summary.
+// Entry point: login (Firebase) or local mode, then management.
+// "Ir a la carrera" runs the calendar's current GP; a completed
+// season opens the summary.
 const app = document.getElementById('app')!;
 
 initTheme();
@@ -37,13 +40,29 @@ function showRaceScreen(): void {
   // The race uses a snapshot of roster + track taken when entering.
   createRaceScreen(
     app,
-    () => buildRaceStateFromRoster(roster, track),
+    () => buildRaceStateFromRoster(roster, track, career),
     showTeamScreen,
     showSeasonScreen
   );
 }
 
-showTeamScreen();
+// Auth gate: with Firebase configured, wait for the restored session
+// (or show the login screen). Without config, straight to local mode.
+function start(): void {
+  if (!firebaseConfigured) {
+    createAuthScreen(app, showTeamScreen);
+    return;
+  }
+  void initCloud().then(() => {
+    const stop = watchAuth((uid) => {
+      stop();
+      if (uid) showTeamScreen();
+      else createAuthScreen(app, showTeamScreen);
+    });
+  });
+}
+
+start();
 
 // PWA: register the hand-written service worker so the game can be
 // installed and played offline (only in the production build).

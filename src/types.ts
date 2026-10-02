@@ -7,6 +7,9 @@
 export type TyreCompound = 'soft' | 'medium' | 'hard' | 'wet';
 export type CarStatus = 'racing' | 'inPit' | 'dnf';
 export type Weather = 'dry' | 'lightRain' | 'heavyRain';
+// Race control flags: green (racing), yellow (slow, no fighting),
+// red (race suspended).
+export type RaceFlag = 'green' | 'yellow' | 'red';
 
 export interface Driver {
   id: string;
@@ -66,6 +69,10 @@ export interface RaceCarState {
   // Engine extension: simulated seconds of pit time still remaining
   // while status is 'inPit' (0 when racing).
   pitTimerSec: number;
+  // Engine extension: pit stop duration override in seconds (used by
+  // the player's cars when the mechanics staff level reduces the
+  // stop time). Falls back to track.pitLaneTimeLoss.
+  pitLaneTimeOverrideSec?: number;
 }
 
 export interface RaceState {
@@ -81,6 +88,10 @@ export interface RaceState {
   currentTick: number;
   simTimeMultiplier: 1 | 5 | 10 | 20;
   isPaused: boolean;
+  // Engine extension: race control flag state (accidents/weather).
+  flag: RaceFlag;
+  // Simulated seconds remaining for the current yellow/red flag.
+  flagTimerSec: number;
 }
 
 export interface PitCommand {

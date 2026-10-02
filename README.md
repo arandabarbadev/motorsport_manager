@@ -11,9 +11,21 @@ Juego de gestión de escudería de F1 estilo *Motorsport Manager*: gestión de e
 - [x] **Fase 5 — Generador procedural de 20 pistas y calendario** (`npm run tracks` para ver la tabla)
 - [x] **Fase 6 — Pantalla de fin de temporada** (resumen + "Empezar temporada nueva" conservando dinero y mejoras)
 
+## Extras (después del plan de 6 fases)
+
+- 🌓 **Tema claro/oscuro** persistente (como Instagram) en todas las pantallas
+- 📲 **Instalable como app** (PWA con service worker propio, funciona sin internet)
+- 🔐 **Login con Firebase** (email/contraseña, partida sincronizada en la nube) + modo local
+- 🚗 **9 categorías de desarrollo del coche** (aero, alerones, motor, electrónica, chasis, suspensión, neumáticos, seguridad, volante)
+- 🏛️ **Sede del equipo**: mecánicos (boxes más rápidos), ingenieros (mejoras más baratas) y comerciales (más patrocinio)
+- 💼 **100 patrocinadores falsos** (0,5 a 5 M€/carrera; los mejores exigen resultados)
+- 💥 **Accidentes y averías** con **banderas amarillas/rojas** y bandera a cuadros al terminar
+- 💰 **Finanzas de carrera**: premios + patrocinio − sueldos − alquiler
+- ⚡ Velocidades 1x/5x/10x/**20x**
+
 ## Stack
 
-TypeScript + Vite + npm. Funciona en escritorio y móvil. Sin framework de UI por ahora (se decidirá cuando lleguen las pantallas de gestión). Sin backend: todo corre en el cliente y la persistencia va en `localStorage`.
+TypeScript + Vite + npm. Funciona en escritorio y móvil. Sin framework de UI. Persistencia en `localStorage` y, con login, en Firestore.
 
 ## Comandos
 

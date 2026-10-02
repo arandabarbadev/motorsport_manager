@@ -280,6 +280,72 @@
   visibility: visible;
 }
 
+.standing-row.dnf {
+  opacity: 0.45;
+}
+
+.standing-row.dnf .gap {
+  color: var(--red);
+  font-weight: 700;
+}
+
+/* Race control flag indicator (top-left over the track) */
+.flag-indicator {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border-2);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.flag-indicator.red {
+  background: var(--red);
+  border-color: var(--red);
+  color: #ffffff;
+}
+
+.flag-indicator.yellow {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #1f2328;
+}
+
+.flag-indicator.checkered {
+  font-size: 16px;
+}
+
+/* Post-race finance breakdown */
+.finance-list {
+  margin-top: 10px;
+  border-top: 1px dashed var(--border-2);
+  padding-top: 8px;
+}
+
+.finance-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  padding: 3px 0;
+  color: var(--dim);
+}
+
+.finance-row strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-row:last-child strong {
+  color: var(--green-text);
+}
+
 @media (max-width: 720px) {
   .race-body {
     flex-direction: column;

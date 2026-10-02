@@ -16,17 +16,36 @@
 .team-header {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 16px;
+  gap: 8px 14px;
   align-items: center;
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
 }
 
-.team-header h1 {
-  font-size: 18px;
-  margin: 0;
-  margin-right: auto;
+.nav-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.nav-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.header-right {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.header-right .go-race-btn {
+  padding: 6px 10px;
+  font-size: 13px;
 }
 
 .budget-chip {
@@ -143,11 +162,164 @@
 
 .rival-row {
   display: grid;
-  grid-template-columns: minmax(150px, 1.2fr) 1fr 1fr;
+  grid-template-columns: minmax(140px, 1.1fr) 1fr 1fr auto;
   gap: 10px;
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
   align-items: center;
+}
+
+.rival-stats {
+  color: var(--dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Development rows (Mi Equipo tab) */
+.dev-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.dev-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.dev-row:last-child {
+  border-bottom: none;
+}
+
+.dev-name {
+  font-size: 14px;
+}
+
+.dev-level {
+  color: var(--accent-text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 3.6em;
+  text-align: right;
+}
+
+/* Staff rows (Sede tab) */
+.staff-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.staff-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.staff-row:last-child {
+  border-bottom: none;
+}
+
+.staff-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.staff-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.staff-level {
+  color: var(--accent-text);
+  letter-spacing: 1px;
+}
+
+.staff-effect {
+  grid-column: 1;
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.staff-row .staff-btn {
+  grid-row: 1 / span 2;
+}
+
+.hq-costs {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--dim);
+}
+
+/* Sponsor list (Patrocinadores tab) */
+.sponsor-current {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.sponsor-list {
+  max-height: 62vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px 10px;
+}
+
+.sponsor-row {
+  display: grid;
+  grid-template-columns: 3em 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.sponsor-row:last-child {
+  border-bottom: none;
+}
+
+.sponsor-rank {
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.sponsor-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sponsor-pay {
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .rival-row {
+    grid-template-columns: 1fr;
+  }
+
+  .sponsor-row {
+    grid-template-columns: 2.4em 1fr auto;
+  }
+
+  .sponsor-pay {
+    grid-column: 2;
+  }
+
+  .sponsor-row .sponsor-btn {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
 }
 
 .rival-row:last-child {

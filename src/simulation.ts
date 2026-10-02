@@ -27,6 +27,17 @@ const MIN_TYRE_WEAR_TO_PIT = 25;    // AI never pits on almost fresh tyres
 const MIN_LAPS_LEFT_TO_PIT = 3;     // AI never pits with fewer laps remaining
 const AI_PIT_SCORE_THRESHOLD = 55;  // boxes AI triggers above this utility score
 
+// Incidents & flags (per simulated second and car; with 20 cars over
+// a ~4500s race the expected totals are ~3 yellow flags, ~1-2 crash
+// DNFs and ~1 mechanical DNF per race):
+const INCIDENT_MINOR_PER_SEC = 1 / 30000;  // spin/offs -> yellow flag
+const INCIDENT_MAJOR_PER_SEC = 1 / 60000;  // crash -> DNF + yellow/red
+const MECH_FAILURE_PER_SEC = 1 / 110000;   // breakdown -> DNF, no flag
+const RED_FLAG_CHANCE = 0.25;              // share of crashes that stop the race
+const YELLOW_DURATION_SEC = 25;
+const RED_DURATION_SEC = 70;
+const YELLOW_PACE_FACTOR = 0.55;           // everyone slows behind the yellow
+
 // Fallbacks if an id is missing from the roster (keeps the sim running).
 const FALLBACK_DRIVER: Driver = {
   id: 'fallback-driver',
@@ -145,10 +156,21 @@ export function simulationTick(state: RaceState): void {
   applyQueuedCommands(state);
 
   const seconds = state.simTimeMultiplier;
+
+  // Flag timing: red suspends the race, yellow slows the whole field.
+  if (state.flag !== 'green') {
+    state.flagTimerSec -= seconds;
+    if (state.flagTimerSec <= 0) {
+      state.flag = 'green';
+      state.flagTimerSec = 0;
+    }
+  }
+
   for (const car of state.cars) {
     if (car.status === 'dnf') continue;
 
-    // Pitting cars stand still for track.pitLaneTimeLoss simulated seconds.
+    // Pitting cars stand still for their pit time (track default or
+    // the player's staff-improved override).
     if (car.status === 'inPit') {
       car.pitTimerSec -= seconds;
       if (car.pitTimerSec <= 0) {
@@ -158,9 +180,13 @@ export function simulationTick(state: RaceState): void {
       continue;
     }
 
+    // Red flag: the race is suspended, nobody moves or wears tyres.
+    if (state.flag === 'red') continue;
+
     const driver = lookupDriver(state, car);
     const spec = lookupCarSpec(state, car);
-    const pace = computePace(car, driver, spec, state.track, state.weather);
+    let pace = computePace(car, driver, spec, state.track, state.weather);
+    if (state.flag === 'yellow') pace *= YELLOW_PACE_FACTOR;
 
     for (let s = 0; s < seconds; s++) {
       car.lapProgress += pace / REFERENCE_LAP_SEC;
@@ -173,6 +199,9 @@ export function simulationTick(state: RaceState): void {
     }
   }
 
+  // Random incidents only under green flag conditions.
+  if (state.flag === 'green') runIncidents(state, seconds);
+
   runPitStopAI(state);
   recalculatePositionsAndGaps(state);
   state.currentTick++;
@@ -184,9 +213,51 @@ function applyQueuedCommands(state: RaceState): void {
     const car = state.cars.find((c) => c.driverId === cmd.carDriverId);
     if (!car || car.status !== 'racing') continue;
     car.status = 'inPit';
-    car.pitTimerSec = state.track.pitLaneTimeLoss;
+    car.pitTimerSec = car.pitLaneTimeOverrideSec ?? state.track.pitLaneTimeLoss;
     car.tyre = { compound: cmd.newCompound, wear: 0, lapsOnTyre: 0 };
     car.pitStopsCompleted++;
+  }
+}
+
+// ------------------------------------------------------------
+// Random incidents: spins (yellow flag), crashes (DNF + yellow or
+// red flag) and mechanical failures (DNF, no flag). Scaled by
+// driver aggression/riskTolerance and the weather.
+// ------------------------------------------------------------
+function raiseFlag(state: RaceState, flag: 'yellow' | 'red', duration: number): void {
+  if (state.flag === 'green') {
+    state.flag = flag;
+    state.flagTimerSec = duration;
+  } else if (flag === 'red' && state.flag === 'yellow') {
+    state.flag = 'red'; // a crash under yellow upgrades to red
+    state.flagTimerSec = duration;
+  }
+}
+
+function runIncidents(state: RaceState, seconds: number): void {
+  const weatherFactor =
+    state.weather === 'dry' ? 1 : state.weather === 'lightRain' ? 1.7 : 2.6;
+  for (const car of state.cars) {
+    if (car.status !== 'racing') continue;
+    const driver = lookupDriver(state, car);
+    const spec = lookupCarSpec(state, car);
+    const risk = 0.55 + (driver.aggression + driver.riskTolerance) / 220; // ~0.7-1.4
+    const pMinor = INCIDENT_MINOR_PER_SEC * risk * weatherFactor * seconds;
+    const pMajor = INCIDENT_MAJOR_PER_SEC * risk * weatherFactor * seconds;
+    const pMech = MECH_FAILURE_PER_SEC * (2 - spec.reliability / 100) * seconds;
+    const roll = Math.random();
+    if (roll < pMinor) {
+      raiseFlag(state, 'yellow', YELLOW_DURATION_SEC);
+    } else if (roll < pMinor + pMajor) {
+      car.status = 'dnf'; // crash out
+      if (Math.random() < RED_FLAG_CHANCE) {
+        raiseFlag(state, 'red', RED_DURATION_SEC);
+      } else {
+        raiseFlag(state, 'yellow', YELLOW_DURATION_SEC);
+      }
+    } else if (roll < pMinor + pMajor + pMech) {
+      car.status = 'dnf'; // mechanical failure, no flag
+    }
   }
 }
 
@@ -194,6 +265,7 @@ function applyQueuedCommands(state: RaceState): void {
 // stop when the tyres are dead. Player cars are skipped here; their stops
 // only come from queuePitCommand.
 function runPitStopAI(state: RaceState): void {
+  if (state.flag === 'red') return; // race suspended: no stops planned
   for (const car of state.cars) {
     if (car.isPlayerControlled || car.status !== 'racing') continue;
     if (car.tyre.wear < MIN_TYRE_WEAR_TO_PIT) continue;

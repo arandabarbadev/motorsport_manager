@@ -1,17 +1,25 @@
 import { INITIAL_BUDGET } from './roster';
 import { ALL_TRACKS } from './tracks-generator';
+import { CAREER_STORAGE_KEY } from './storage-keys';
 
 // ============================================================
-// CAREER STATE (Phase 4+5+6): persistent economy and season.
-// - budget: single source of truth for money (prizes are added on
-//   race end; "Mi Equipo" reads and spends this value).
-// - calendar: 20 track ids in fixed season order.
-// - currentRaceIndex: 0..19, the GP the season is on.
-// - seasonNumber / seasonResults: season summary (Phase 6).
+// CAREER STATE: persistent economy and season.
+// - budget: single source of truth for money.
+// - calendar/currentRaceIndex/seasonNumber/seasonResults: season.
+// - staff: headquarters staff levels (pit time, cheaper upgrades,
+//   better sponsor income).
+// - sponsorId: the signed sponsor (0..99), see sponsors.ts.
 // Key: "f1manager:career:v1".
 // ============================================================
 
-export const CAREER_STORAGE_KEY = 'f1manager:career:v1';
+export interface StaffState {
+  mechanics: number; // levels 1..5: -1.5s in the pits per level
+  engineers: number; // levels 1..5: -5% development cost per level
+  commercial: number; // levels 1..5: +5% sponsor income per level
+}
+
+export const STAFF_MAX_LEVEL = 5;
+export const STAFF_UPGRADE_BASE_COST = 30; // M€: next level costs 30 x nextLevel
 
 export interface SeasonResult {
   trackId: string;
@@ -26,6 +34,8 @@ export interface CareerState {
   currentRaceIndex: number;
   seasonNumber: number; // starts at 1
   seasonResults: SeasonResult[]; // one entry per completed race
+  staff: StaffState;
+  sponsorId: number | null;
 }
 
 export function createDefaultCareer(budget: number = INITIAL_BUDGET): CareerState {
@@ -36,6 +46,8 @@ export function createDefaultCareer(budget: number = INITIAL_BUDGET): CareerStat
     currentRaceIndex: 0,
     seasonNumber: 1,
     seasonResults: [],
+    staff: { mechanics: 1, engineers: 1, commercial: 1 },
+    sponsorId: null,
   };
 }
 
@@ -47,14 +59,19 @@ export function isSeasonComplete(career: CareerState): boolean {
   return career.seasonResults.length >= career.calendar.length;
 }
 
+// Next level cost of a staff category (1 -> 2 costs 30, 4 -> 5 costs 120).
+export function staffUpgradeCost(currentLevel: number): number {
+  return STAFF_UPGRADE_BASE_COST * currentLevel;
+}
+
 export function loadCareer(): CareerState | null {
   try {
     const raw = localStorage.getItem(CAREER_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<CareerState>;
     if (parsed.version !== 1 || typeof parsed.budget !== 'number') return null;
-    // Merge with defaults so older saves (Phase 4/5, missing fields)
-    // migrate forward without losing progress.
+    // Merge with defaults so older saves migrate forward without
+    // losing progress.
     const merged: CareerState = {
       version: 1,
       budget: parsed.budget,
@@ -65,17 +82,21 @@ export function loadCareer(): CareerState | null {
         typeof parsed.currentRaceIndex === 'number' ? parsed.currentRaceIndex : 0,
       seasonNumber: typeof parsed.seasonNumber === 'number' ? parsed.seasonNumber : 1,
       seasonResults: Array.isArray(parsed.seasonResults) ? parsed.seasonResults : [],
+      staff: {
+        mechanics: parsed.staff?.mechanics ?? 1,
+        engineers: parsed.staff?.engineers ?? 1,
+        commercial: parsed.staff?.commercial ?? 1,
+      },
+      sponsorId: typeof parsed.sponsorId === 'number' ? parsed.sponsorId : null,
     };
-    saveCareer(merged);
     return merged;
   } catch {
     return null;
   }
 }
 
-// Migration-friendly creation: if there is no career save yet
-// (Phase 3 saves kept the budget inside the roster), start from
-// fallbackBudget so nothing the player already spent is lost.
+// Migration-friendly creation: if there is no career save yet, start
+// from fallbackBudget so nothing the player already spent is lost.
 export function getOrCreateCareer(fallbackBudget: number = INITIAL_BUDGET): CareerState {
   return loadCareer() ?? createDefaultCareer(fallbackBudget);
 }

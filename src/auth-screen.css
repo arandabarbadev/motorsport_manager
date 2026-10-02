@@ -1,0 +1,67 @@
+@import './ui.css';
+
+/* ============================================================
+   AUTH SCREEN — login card
+   ============================================================ */
+
+.auth-screen {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.auth-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 24px;
+  width: min(94vw, 380px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-card h1 {
+  margin: 0;
+  font-size: 20px;
+  text-align: center;
+}
+
+.auth-sub {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--dim);
+  text-align: center;
+}
+
+.auth-error {
+  color: var(--red);
+  font-size: 13px;
+  min-height: 1em;
+}
+
+.auth-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.auth-actions .btn {
+  flex: 1;
+}
+
+.auth-local-btn {
+  width: 100%;
+}
+
+.auth-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dim);
+}

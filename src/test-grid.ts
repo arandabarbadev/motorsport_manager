@@ -2,6 +2,7 @@ import { Car, Driver, RaceState, Team, Track } from './types';
 import { buildRaceStateFromRoster } from './race-builder';
 import { makeRng } from './rng';
 import { Roster, TeamEntry } from './roster';
+import { createDefaultCareer } from './career';
 
 // ============================================================
 // TEST GRID: deterministic demo roster (fixed seed) used by the
@@ -66,7 +67,7 @@ function buildTestRoster(): Roster {
 }
 
 export function buildTestRaceState(): RaceState {
-  return buildRaceStateFromRoster(buildTestRoster(), buildTestTrack());
+  return buildRaceStateFromRoster(buildTestRoster(), buildTestTrack(), createDefaultCareer(0));
 }
 
 // The original placeholder oval: kept so harness results stay

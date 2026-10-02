@@ -2,6 +2,7 @@ import './season-screen.css';
 import { getOrCreateCareer, isSeasonComplete, saveCareer } from './career';
 import { getTrackById } from './tracks-generator';
 import { themeButtonLabel, toggleTheme } from './theme';
+import { scheduleCloudSync } from './cloud';
 
 // ============================================================
 // SEASON SCREEN (Phase 6): end-of-season summary. Lists every
@@ -81,6 +82,7 @@ export function createSeasonScreen(container: HTMLElement, onExit: () => void): 
     career.seasonResults = [];
     career.currentRaceIndex = 0;
     saveCareer(career);
+    scheduleCloudSync();
     onExit();
   });
   const backBtn = document.createElement('button');

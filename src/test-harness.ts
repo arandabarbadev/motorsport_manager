@@ -94,11 +94,13 @@ export function runTestHarness(): string {
     const driver = state.drivers.find((d) => d.id === car.driverId)!;
     const lapsDown = leaderLaps - car.currentLap;
     const gap =
-      car.position === 1
-        ? 'leader'
-        : lapsDown > 0
-          ? `+${lapsDown} lap${lapsDown > 1 ? 's' : ''}`
-          : `+${car.gapToLeaderSec.toFixed(1)}s`;
+      car.status === 'dnf'
+        ? 'DNF'
+        : car.position === 1
+          ? 'leader'
+          : lapsDown > 0
+            ? `+${lapsDown} lap${lapsDown > 1 ? 's' : ''}`
+            : `+${car.gapToLeaderSec.toFixed(1)}s`;
     const stops = pitLog.get(car.driverId) ?? [];
     const pitLaps = stops.length > 0 ? stops.map((s) => s.lap).join(', ') : '-';
     lines.push(

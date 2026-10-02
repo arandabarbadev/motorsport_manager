@@ -10,6 +10,8 @@ import { prizeForPosition } from './prize-table';
 import { getOrCreateCareer, saveCareer } from './career';
 import { getTrackById } from './tracks-generator';
 import { onThemeChange, themeButtonLabel, toggleTheme } from './theme';
+import { computeRaceFinance } from './finance';
+import { scheduleCloudSync } from './cloud';
 import { buildTrackSampler, Point, TrackSampler } from './track-path';
 
 // ============================================================
@@ -92,10 +94,12 @@ export function createRaceScreen(
     <div class="race-body">
       <div class="track-wrap">
         <canvas class="track-canvas"></canvas>
+        <div class="flag-indicator hidden"></div>
         <div class="results-overlay hidden">
           <div class="results-panel">
             <h2>🏁 Carrera terminada</h2>
             <div class="results-list"></div>
+            <div class="finance-list"></div>
             <div class="results-total"></div>
             <div class="results-actions">
               <button type="button" class="btn primary overlay-season-btn hidden">🏆 Ver resumen de temporada</button>
@@ -120,7 +124,9 @@ export function createRaceScreen(
   const layerCtx = trackLayer.getContext('2d')!;
   const overlayEl = root.querySelector<HTMLElement>('.results-overlay')!;
   const resultsListEl = root.querySelector<HTMLElement>('.results-list')!;
+  const financeListEl = root.querySelector<HTMLElement>('.finance-list')!;
   const resultsTotalEl = root.querySelector<HTMLElement>('.results-total')!;
+  const flagEl = root.querySelector<HTMLElement>('.flag-indicator')!;
   const nameEl = root.querySelector<HTMLElement>('.race-name')!;
   const lapEl = root.querySelector<HTMLElement>('.race-lap')!;
   const weatherEl = root.querySelector<HTMLElement>('.race-weather')!;
@@ -226,7 +232,7 @@ export function createRaceScreen(
     const w = trackLayer.width;
     const h = trackLayer.height;
     layerCtx.clearRect(0, 0, w, h);
-    const roadWidth = Math.max(10, 0.045 * Math.min(w, h));
+    const roadWidth = Math.max(12, 0.062 * Math.min(w, h)); // wide enough to see overtakes
     // Track colors follow the active theme (light/dark).
     const cssVar = (name: string): string =>
       getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -339,6 +345,20 @@ export function createRaceScreen(
       const prevTotal = sh.lap + sh.progress;
       const currTotal = car.currentLap + car.lapProgress;
       const p = toPx(sampler.pointAt(prevTotal + (currTotal - prevTotal) * alpha));
+      const cssVar = (name: string): string =>
+        getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+      if (car.status === 'dnf') {
+        // Crashed/broken car: faded grey ghost on the track.
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r * 0.8, 0, Math.PI * 2);
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = cssVar('--dim');
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        return;
+      }
+
       ctx.beginPath();
       ctx.arc(p.x, p.y, car.status === 'inPit' ? r * 0.75 : r, 0, Math.PI * 2);
       ctx.fillStyle = teamById(car.teamId).color;
@@ -346,8 +366,6 @@ export function createRaceScreen(
       ctx.fill();
       ctx.globalAlpha = 1;
       ctx.lineWidth = Math.max(1.2, r * 0.3);
-      const cssVar = (name: string): string =>
-        getComputedStyle(document.documentElement).getPropertyValue(name).trim();
       ctx.strokeStyle = car.isPlayerControlled ? '#ffd700' : cssVar('--car-outline');
       ctx.stroke();
     }
@@ -394,7 +412,7 @@ export function createRaceScreen(
       // Re-append in position order (appendChild moves existing nodes).
       standingsEl.appendChild(row.root);
       row.pos.textContent = String(car.position);
-      row.gap.textContent = formatGap(car, leaderLap);
+      row.gap.textContent = car.status === 'dnf' ? 'DNF' : formatGap(car, leaderLap);
       row.tyre.textContent = COMPOUND_LABEL[car.tyre.compound];
       row.tyre.className = 'tyre ' + car.tyre.compound;
       const wear = Math.round(car.tyre.wear);
@@ -402,6 +420,7 @@ export function createRaceScreen(
       row.wearFill.className =
         'wear-fill' + (wear >= 80 ? ' danger' : wear >= 50 ? ' warn' : '');
       row.root.classList.toggle('pitting', car.status === 'inPit');
+      row.root.classList.toggle('dnf', car.status === 'dnf');
       row.pitflag.textContent =
         car.status === 'inPit' ? `🔧${Math.ceil(car.pitTimerSec)}s` : '🔧';
     }
@@ -434,6 +453,19 @@ export function createRaceScreen(
     lapEl.textContent = `Vuelta ${Math.min(leaderLap + 1, state.track.totalLaps)}/${state.track.totalLaps}`;
     clockEl.textContent = formatClock(clockSec);
     weatherEl.textContent = WEATHER_LABEL[state.weather];
+    // Race control flags, top-left over the track.
+    if (finished) {
+      flagEl.textContent = '🏁 ¡BANDERA A CUADROS!';
+      flagEl.className = 'flag-indicator checkered';
+    } else if (state.flag === 'red') {
+      flagEl.textContent = `🔴 BANDERA ROJA (${Math.ceil(state.flagTimerSec)}s)`;
+      flagEl.className = 'flag-indicator red';
+    } else if (state.flag === 'yellow') {
+      flagEl.textContent = `🟡 BANDERA AMARILLA (${Math.ceil(state.flagTimerSec)}s)`;
+      flagEl.className = 'flag-indicator yellow';
+    } else {
+      flagEl.className = 'flag-indicator hidden';
+    }
   }
 
   function formatClock(totalSec: number): string {
@@ -541,7 +573,9 @@ export function createRaceScreen(
     if (!prizeAwarded) {
       prizeAwarded = true;
       if (!alreadyRecorded) {
-        career.budget += totalPrize;
+        // Full race finance: prizes + sponsor income - salaries - rent.
+        const finance = computeRaceFinance(totalPrize, career);
+        career.budget += finance.net;
         // Phase 6: record the season result (best of the two player cars).
         const bestPosition = Math.min(...playerResults.map((r) => r.position));
         career.seasonResults.push({
@@ -549,6 +583,26 @@ export function createRaceScreen(
           position: bestPosition,
           prize: totalPrize,
         });
+        // Breakdown rows for the results overlay.
+        financeListEl.innerHTML = '';
+        const addFinanceRow = (label: string, value: string): void => {
+          const row = document.createElement('div');
+          row.className = 'finance-row';
+          const labelEl = document.createElement('span');
+          labelEl.textContent = label;
+          const valueEl = document.createElement('strong');
+          valueEl.textContent = value;
+          row.append(labelEl, valueEl);
+          financeListEl.appendChild(row);
+        };
+        addFinanceRow('Patrocinador', `+${String(finance.sponsor).replace('.', ',')} M€`);
+        addFinanceRow('Sueldos de pilotos', `−${finance.driversCost} M€`);
+        addFinanceRow('Sueldos del personal', `−${finance.staffCost} M€`);
+        addFinanceRow('Alquiler de instalaciones', `−${finance.rentCost} M€`);
+        addFinanceRow(
+          'Balance de la carrera',
+          `${finance.net >= 0 ? '+' : '−'}${String(Math.abs(finance.net)).replace('.', ',')} M€`
+        );
       }
       if (!wasLastRace) {
         // Phase 5: advance the calendar after a finished race.
@@ -561,6 +615,7 @@ export function createRaceScreen(
         overlaySeasonBtn.classList.remove('hidden');
       }
       saveCareer(career);
+      scheduleCloudSync();
     }
 
     resultsListEl.innerHTML = '';

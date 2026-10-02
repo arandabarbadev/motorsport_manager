@@ -1,135 +1,107 @@
 import './team-screen.css';
+import { Car } from './types';
 import {
   createDefaultRoster,
   loadRoster,
   regenerateRivals,
   saveRoster,
-  MAX_CAR_STAT,
-  UPGRADE_COST,
-  UPGRADE_STEP,
+  DEV_COST_PER_POINT,
+  DEV_IDS,
+  DEV_LABELS,
+  DEV_MAX_LEVEL,
   Roster,
   TeamEntry,
 } from './roster';
-import { getOrCreateCareer, isSeasonComplete, saveCareer, CareerState } from './career';
+import {
+  getOrCreateCareer,
+  isSeasonComplete,
+  saveCareer,
+  STAFF_MAX_LEVEL,
+  staffUpgradeCost,
+  CareerState,
+} from './career';
 import { ALL_TRACKS, getTrackById } from './tracks-generator';
 import { themeButtonLabel, toggleTheme } from './theme';
-
-// Minimal shape of the browser's beforeinstallprompt event.
-interface InstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: string }>;
-}
+import { ALL_SPONSORS, getSponsor, isSponsorUnlocked } from './sponsors';
+import { computeRaceFinance } from './finance';
+import { logout, scheduleCloudSync, watchAuth } from './cloud';
 
 // ============================================================
-// TEAM SCREEN (Phase 3): "Mi Equipo" management (name, livery
-// color, budget, editable drivers, car upgrades) + rival editor
-// (team name and driver names as plain text fields). Everything
-// is persisted to localStorage on every change.
+// TEAM SCREEN: management hub with 4 tabs (player request
+// 2026-09-27): Mi Equipo (identity + 9 car developments), Sede
+// (staff), Rivales (editor + stats) and Patrocinadores (100 fake
+// companies). Header: budget, reset-season, theme, logout and
+// the race button.
 // ============================================================
 
-type CarStat = 'aero' | 'engine' | 'chassis';
+type TabId = 'team' | 'hq' | 'rivals' | 'sponsors';
+type StaffKey = 'mechanics' | 'engineers' | 'commercial';
 
-const STAT_LABELS: Record<CarStat, string> = {
-  aero: 'Aerodinámica',
-  engine: 'Motor',
-  chassis: 'Chasis',
+const STAFF_INFO: Record<StaffKey, { label: string; effect: (level: number) => string }> = {
+  mechanics: {
+    label: '🧰 Mecánicos',
+    effect: (l) => `Boxes: −${((l - 1) * 1.5).toFixed(1).replace('.', ',')} s por parada`,
+  },
+  engineers: {
+    label: '👨‍🔬 Ingenieros',
+    effect: (l) => `Mejoras del coche: −${(l - 1) * 5}% de coste`,
+  },
+  commercial: {
+    label: '💼 Comerciales',
+    effect: (l) => `Ingresos de patrocinio: +${(l - 1) * 5}%`,
+  },
 };
 
 export function createTeamScreen(container: HTMLElement, onGoRace: () => void): void {
   container.innerHTML = '';
   let roster: Roster = loadRoster() ?? createDefaultRoster();
-  saveRoster(roster); // first open: persist the generated grid
+  saveRoster(roster);
+  let career: CareerState = getOrCreateCareer(
+    roster.entries.find((e) => e.team.id === roster.playerTeamId)!.team.budget
+  );
+  saveCareer(career);
+  let tab: TabId = 'team';
 
   const root = document.createElement('div');
   root.className = 'team-screen';
   root.innerHTML = `
     <header class="team-header">
-      <h1>🏆 Motorsport Manager</h1>
-      <div class="budget-chip">Presupuesto: <span class="budget-value"></span> M€</div>
-      <button type="button" class="btn install-btn hidden">📲 Instalar app</button>
-      <button type="button" class="btn theme-btn"></button>
-      <button type="button" class="btn primary go-race-btn">🏁 Ir a la carrera</button>
+      <nav class="nav-tabs">
+        <button type="button" class="btn nav-btn active" data-tab="team">🚗 Mi Equipo</button>
+        <button type="button" class="btn nav-btn" data-tab="hq">🏛️ Sede</button>
+        <button type="button" class="btn nav-btn" data-tab="rivals">🏁 Rivales</button>
+        <button type="button" class="btn nav-btn" data-tab="sponsors">💼 Patrocinadores</button>
+      </nav>
+      <div class="header-right">
+        <div class="budget-chip"><span class="budget-value"></span> M</div>
+        <button type="button" class="btn reset-season-btn" title="Volver a la ronda 1 de esta temporada (conservas dinero, mejoras y sede)">↺ Temporada</button>
+        <button type="button" class="btn theme-btn"></button>
+        <button type="button" class="btn logout-btn hidden">🚪 Salir</button>
+        <button type="button" class="btn primary go-race-btn">🏁 Carrera</button>
+      </div>
     </header>
     <main class="team-main">
-      <section class="card">
-        <h2>Mi Equipo</h2>
-        <div class="form-row">
-          <label class="field">Nombre del equipo
-            <input class="in team-name-input" type="text" maxlength="24" />
-          </label>
-          <label class="field">Color de librea
-            <input class="in team-color-input" type="color" />
-          </label>
-        </div>
-        <div class="form-row">
-          <label class="field">Piloto 1
-            <input class="in player-driver-input" data-seat="0" type="text" maxlength="24" />
-          </label>
-          <label class="field">Piloto 2
-            <input class="in player-driver-input" data-seat="1" type="text" maxlength="24" />
-          </label>
-        </div>
-        <h3>Desarrollo del coche (mejora tus 2 coches a la vez)</h3>
-        <div class="upgrade-list"></div>
-      </section>
-      <section class="card">
-        <h2>Rivales
-          <button type="button" class="btn regen-btn">🎲 Generar parrilla nueva</button>
-        </h2>
-        <div class="rival-list"></div>
-      </section>
+      <section class="card tab-panel"></section>
     </main>`;
   container.appendChild(root);
 
   const playerEntry = (): TeamEntry =>
     roster.entries.find((e) => e.team.id === roster.playerTeamId)!;
 
-  // Phase 4: the real budget lives in the persistent career state;
-  // the roster copy only serves as fallback for old (Phase 3) saves.
-  const career: CareerState = getOrCreateCareer(playerEntry().team.budget);
-  saveCareer(career);
-
+  const panel = root.querySelector<HTMLElement>('.tab-panel')!;
   const budgetValueEl = root.querySelector<HTMLElement>('.budget-value')!;
   const goRaceBtn = root.querySelector<HTMLButtonElement>('.go-race-btn')!;
-
-  // Light/dark theme toggle (Instagram-style, persisted).
   const themeBtn = root.querySelector<HTMLButtonElement>('.theme-btn')!;
-  themeBtn.textContent = themeButtonLabel();
-  themeBtn.addEventListener('click', () => {
-    toggleTheme();
-    themeBtn.textContent = themeButtonLabel();
-  });
+  const resetBtn = root.querySelector<HTMLButtonElement>('.reset-season-btn')!;
+  const logoutBtn = root.querySelector<HTMLButtonElement>('.logout-btn')!;
+  const navBtns = [...root.querySelectorAll<HTMLButtonElement>('.nav-btn')];
 
-  // PWA install: shows when the browser offers installation.
-  const installBtn = root.querySelector<HTMLButtonElement>('.install-btn')!;
-  let installPromptEvent: InstallPromptEvent | null = null;
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    installPromptEvent = e as InstallPromptEvent;
-    installBtn.classList.remove('hidden');
-  });
-  installBtn.addEventListener('click', () => {
-    if (!installPromptEvent) return;
-    void installPromptEvent.prompt();
-    installPromptEvent = null;
-    installBtn.classList.add('hidden');
-  });
-  // Phase 5/6: the race button shows which GP is next, or the season
-  // summary once all 20 races are done.
-  if (isSeasonComplete(career)) {
-    goRaceBtn.textContent = '🏆 Ver resumen de temporada';
-  } else {
-    const currentTrack =
-      getTrackById(career.calendar[career.currentRaceIndex]) ?? ALL_TRACKS[0];
-    goRaceBtn.textContent = `🏁 Ir a la carrera — Ronda ${Math.min(
-      career.currentRaceIndex + 1,
-      career.calendar.length
-    )}/${career.calendar.length}: ${currentTrack.name}`;
+  // Everything the screens save goes to localStorage + the cloud.
+  function syncAll(): void {
+    saveRoster(roster);
+    saveCareer(career);
+    scheduleCloudSync();
   }
-  const teamNameInput = root.querySelector<HTMLInputElement>('.team-name-input')!;
-  const teamColorInput = root.querySelector<HTMLInputElement>('.team-color-input')!;
-  const upgradeList = root.querySelector<HTMLElement>('.upgrade-list')!;
-  const rivalList = root.querySelector<HTMLElement>('.rival-list')!;
 
   // Two-way text binding: saves on every edit, restores if left empty.
   function bindTextInput(
@@ -142,7 +114,7 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
       const v = input.value.trim();
       if (v) {
         set(v);
-        saveRoster(roster);
+        syncAll();
       }
     });
     input.addEventListener('change', () => {
@@ -150,74 +122,226 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
     });
   }
 
-  // ---- Mi Equipo ----
-  bindTextInput(
-    teamNameInput,
-    () => playerEntry().team.name,
-    (v) => {
-      playerEntry().team.name = v;
-    }
-  );
-  teamColorInput.value = playerEntry().team.color;
-  teamColorInput.addEventListener('input', () => {
-    playerEntry().team.color = teamColorInput.value;
-    saveRoster(roster);
-    renderRivals(); // refresh the color dots
+  // ---- Header controls ----
+  themeBtn.textContent = themeButtonLabel();
+  themeBtn.addEventListener('click', () => {
+    toggleTheme();
+    themeBtn.textContent = themeButtonLabel();
   });
-  for (const input of root.querySelectorAll<HTMLInputElement>('.player-driver-input')) {
-    const seat = Number(input.dataset.seat);
-    bindTextInput(
-      input,
-      () => playerEntry().drivers[seat].name,
-      (v) => {
-        playerEntry().drivers[seat].name = v;
-      }
-    );
-  }
 
-  // ---- Upgrades ----
-  const upgradeButtons = new Map<CarStat, HTMLButtonElement>();
-  const statValues = new Map<CarStat, HTMLElement>();
-  for (const stat of ['aero', 'engine', 'chassis'] as CarStat[]) {
-    const row = document.createElement('div');
-    row.className = 'upgrade-row';
-    row.innerHTML = `
-      <span class="stat-name">${STAT_LABELS[stat]}</span>
-      <span class="stat-value"></span>
-      <button type="button" class="btn upgrade-btn"></button>`;
-    statValues.set(stat, row.querySelector<HTMLElement>('.stat-value')!);
-    const btn = row.querySelector<HTMLButtonElement>('.upgrade-btn')!;
+  watchAuth((uid) => {
+    logoutBtn.classList.toggle('hidden', !uid);
+  });
+  logoutBtn.addEventListener('click', () => {
+    void logout().then(() => location.reload());
+  });
+
+  resetBtn.addEventListener('click', () => {
+    if (
+      !window.confirm(
+        '¿Reiniciar la TEMPORADA? Vuelves a la ronda 1 de la temporada actual. Conservas dinero, mejoras del coche y sede.'
+      )
+    ) {
+      return;
+    }
+    career.seasonResults = [];
+    career.currentRaceIndex = 0;
+    syncAll();
+    refresh();
+  });
+
+  function updateRaceButton(): void {
+    if (isSeasonComplete(career)) {
+      goRaceBtn.textContent = '🏆 Ver temporada';
+    } else {
+      const track =
+        getTrackById(career.calendar[career.currentRaceIndex]) ?? ALL_TRACKS[0];
+      goRaceBtn.textContent = `🏁 Carrera · R${Math.min(
+        career.currentRaceIndex + 1,
+        career.calendar.length
+      )}: ${track.name}`;
+    }
+  }
+  goRaceBtn.addEventListener('click', () => onGoRace());
+
+  // ---- Tabs ----
+  for (const btn of navBtns) {
     btn.addEventListener('click', () => {
-      const entry = playerEntry();
-      if (career.budget < UPGRADE_COST) return;
-      if (entry.cars[0][stat] + UPGRADE_STEP > MAX_CAR_STAT) return;
-      career.budget -= UPGRADE_COST;
-      entry.team.budget = career.budget; // keep the roster copy in sync
-      for (const car of entry.cars) car[stat] += UPGRADE_STEP;
-      saveRoster(roster);
-      saveCareer(career);
-      refresh();
+      tab = btn.dataset.tab as TabId;
+      navBtns.forEach((b) => b.classList.toggle('active', b === btn));
+      renderTab();
     });
-    upgradeButtons.set(stat, btn);
-    upgradeList.appendChild(row);
   }
 
   function refresh(): void {
-    const entry = playerEntry();
-    budgetValueEl.textContent = String(career.budget);
-    for (const stat of upgradeButtons.keys()) {
-      const value = entry.cars[0][stat];
-      statValues.get(stat)!.textContent = String(value);
-      const btn = upgradeButtons.get(stat)!;
-      btn.textContent = `+${UPGRADE_STEP} · ${UPGRADE_COST} M€`;
-      btn.disabled =
-        value + UPGRADE_STEP > MAX_CAR_STAT || career.budget < UPGRADE_COST;
-    }
+    budgetValueEl.textContent = String(Math.round(career.budget));
+    updateRaceButton();
+    renderTab();
   }
 
-  // ---- Rival editor ----
-  function renderRivals(): void {
-    rivalList.innerHTML = '';
+  function renderTab(): void {
+    panel.innerHTML = '';
+    if (tab === 'team') renderTeamTab();
+    else if (tab === 'hq') renderHqTab();
+    else if (tab === 'rivals') renderRivalsTab();
+    else renderSponsorsTab();
+  }
+
+  // ---- Tab: Mi Equipo ----
+  function renderTeamTab(): void {
+    const title = document.createElement('h2');
+    title.textContent = 'Mi Equipo';
+    panel.appendChild(title);
+
+    const identity = document.createElement('div');
+    identity.className = 'form-row';
+    identity.innerHTML = `
+      <label class="field">Nombre del equipo
+        <input class="in team-name-input" type="text" maxlength="24" />
+      </label>
+      <label class="field">Color de librea
+        <input class="in team-color-input" type="color" />
+      </label>
+      <label class="field">Piloto 1
+        <input class="in player-driver-input" data-seat="0" type="text" maxlength="24" />
+      </label>
+      <label class="field">Piloto 2
+        <input class="in player-driver-input" data-seat="1" type="text" maxlength="24" />
+      </label>`;
+    panel.appendChild(identity);
+
+    bindTextInput(
+      identity.querySelector<HTMLInputElement>('.team-name-input')!,
+      () => playerEntry().team.name,
+      (v) => {
+        playerEntry().team.name = v;
+      }
+    );
+    const colorInput = identity.querySelector<HTMLInputElement>('.team-color-input')!;
+    colorInput.value = playerEntry().team.color;
+    colorInput.addEventListener('input', () => {
+      playerEntry().team.color = colorInput.value;
+      syncAll();
+    });
+    for (const input of identity.querySelectorAll<HTMLInputElement>('.player-driver-input')) {
+      const seat = Number(input.dataset.seat);
+      bindTextInput(
+        input,
+        () => playerEntry().drivers[seat].name,
+        (v) => {
+          playerEntry().drivers[seat].name = v;
+        }
+      );
+    }
+
+    const devTitle = document.createElement('h3');
+    devTitle.textContent = 'Desarrollo del coche (tus 2 coches a la vez)';
+    panel.appendChild(devTitle);
+
+    const devList = document.createElement('div');
+    devList.className = 'dev-list';
+    const developments = playerEntry().developments ?? {};
+    playerEntry().developments = developments;
+    // Engineers discount on development costs.
+    const cost = Math.ceil(DEV_COST_PER_POINT * (1 - 0.05 * (career.staff.engineers - 1)));
+    for (const devId of DEV_IDS) {
+      const level = developments[devId] ?? 0;
+      const row = document.createElement('div');
+      row.className = 'dev-row';
+      row.innerHTML = `
+        <span class="dev-name">${DEV_LABELS[devId]}</span>
+        <span class="dev-level"></span>
+        <button type="button" class="btn dev-btn"></button>`;
+      const levelEl = row.querySelector<HTMLElement>('.dev-level')!;
+      levelEl.textContent = `${level}/${DEV_MAX_LEVEL}`;
+      const btn = row.querySelector<HTMLButtonElement>('.dev-btn')!;
+      const maxed = level >= DEV_MAX_LEVEL;
+      btn.textContent = maxed ? 'MÁX' : `+1 · ${cost} M€`;
+      btn.disabled = maxed || career.budget < cost;
+      btn.addEventListener('click', () => {
+        if (level >= DEV_MAX_LEVEL || career.budget < cost) return;
+        career.budget -= cost;
+        developments[devId] = level + 1;
+        syncAll();
+        refresh();
+      });
+      devList.appendChild(row);
+    }
+    panel.appendChild(devList);
+  }
+
+  // ---- Tab: Sede ----
+  function renderHqTab(): void {
+    const title = document.createElement('h2');
+    title.textContent = '🏛️ Sede del equipo';
+    panel.appendChild(title);
+
+    const staffList = document.createElement('div');
+    staffList.className = 'staff-list';
+    for (const key of ['mechanics', 'engineers', 'commercial'] as StaffKey[]) {
+      const level = career.staff[key];
+      const info = STAFF_INFO[key];
+      const row = document.createElement('div');
+      row.className = 'staff-row';
+      row.innerHTML = `
+        <div class="staff-head">
+          <span class="staff-name">${info.label}</span>
+          <span class="staff-level"></span>
+        </div>
+        <div class="staff-effect">${info.effect(level)}</div>
+        <button type="button" class="btn staff-btn"></button>`;
+      const levelEl = row.querySelector<HTMLElement>('.staff-level')!;
+      levelEl.textContent = '▮'.repeat(level) + '▯'.repeat(STAFF_MAX_LEVEL - level);
+      const btn = row.querySelector<HTMLButtonElement>('.staff-btn')!;
+      const cost = staffUpgradeCost(level);
+      const maxed = level >= STAFF_MAX_LEVEL;
+      btn.textContent = maxed ? 'MÁX' : `Mejorar · ${cost} M€`;
+      btn.disabled = maxed || career.budget < cost;
+      btn.addEventListener('click', () => {
+        if (maxed || career.budget < cost) return;
+        career.budget -= cost;
+        career.staff[key] += 1;
+        syncAll();
+        refresh();
+      });
+      staffList.appendChild(row);
+    }
+    panel.appendChild(staffList);
+
+    const finance = computeRaceFinance(0, career);
+    const costs = finance.driversCost + finance.staffCost + finance.rentCost;
+    const costsEl = document.createElement('p');
+    costsEl.className = 'hq-costs';
+    costsEl.textContent = `Gastos fijos por carrera: −${costs} M€ (pilotos ${finance.driversCost}, personal ${finance.staffCost}, alquiler ${finance.rentCost})`;
+    panel.appendChild(costsEl);
+  }
+
+  // ---- Tab: Rivales ----
+  function renderRivalsTab(): void {
+    const title = document.createElement('h2');
+    title.textContent = 'Rivales';
+    const regenBtn = document.createElement('button');
+    regenBtn.type = 'button';
+    regenBtn.className = 'btn';
+    regenBtn.textContent = '🎲 Generar parrilla nueva';
+    title.appendChild(regenBtn);
+    panel.appendChild(title);
+
+    regenBtn.addEventListener('click', () => {
+      if (
+        !window.confirm(
+          '¿Generar una parrilla de rivales nueva? Se pierden los nombres editados de los rivales.'
+        )
+      ) {
+        return;
+      }
+      roster = regenerateRivals(roster);
+      syncAll();
+      renderTab();
+    });
+
+    const rivalList = document.createElement('div');
+    rivalList.className = 'rival-list';
     for (const entry of roster.entries) {
       if (entry.team.id === roster.playerTeamId) continue;
       const row = document.createElement('div');
@@ -228,7 +352,8 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
           <input class="in rival-team-name" type="text" maxlength="24" />
         </div>
         <input class="in rival-driver-name" data-seat="0" type="text" maxlength="24" />
-        <input class="in rival-driver-name" data-seat="1" type="text" maxlength="24" />`;
+        <input class="in rival-driver-name" data-seat="1" type="text" maxlength="24" />
+        <span class="rival-stats"></span>`;
       bindTextInput(
         row.querySelector<HTMLInputElement>('.rival-team-name')!,
         () => entry.team.name,
@@ -246,27 +371,61 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
           }
         );
       }
+      const avg = (get: (c: Car) => number): number =>
+        Math.round((get(entry.cars[0]) + get(entry.cars[1])) / 2);
+      row.querySelector<HTMLElement>('.rival-stats')!.textContent =
+        `A ${avg((c) => c.aero)} · M ${avg((c) => c.engine)} · C ${avg((c) => c.chassis)}`;
       rivalList.appendChild(row);
     }
+    panel.appendChild(rivalList);
   }
 
-  root.querySelector<HTMLButtonElement>('.regen-btn')!.addEventListener('click', () => {
-    if (
-      !window.confirm(
-        '¿Generar una parrilla de rivales nueva? Se pierden los nombres editados de los rivales.'
-      )
-    ) {
-      return;
+  // ---- Tab: Patrocinadores ----
+  function renderSponsorsTab(): void {
+    const title = document.createElement('h2');
+    title.textContent = '💼 Patrocinadores';
+    panel.appendChild(title);
+
+    const active = getSponsor(career.sponsorId);
+    const current = document.createElement('p');
+    current.className = 'sponsor-current';
+    current.textContent = active
+      ? `Patrocinador actual: ${active.name} (+${String(
+          computeRaceFinance(0, career).sponsor
+        ).replace('.', ',')} M€ por carrera)`
+      : 'Sin patrocinador: firma uno para cobrar cada carrera.';
+    panel.appendChild(current);
+
+    const list = document.createElement('div');
+    list.className = 'sponsor-list';
+    // Best paid first.
+    for (let i = ALL_SPONSORS.length - 1; i >= 0; i--) {
+      const sponsor = ALL_SPONSORS[i];
+      const row = document.createElement('div');
+      row.className = 'sponsor-row';
+      row.innerHTML = `
+        <span class="sponsor-rank">#${i + 1}</span>
+        <span class="sponsor-name"></span>
+        <span class="sponsor-pay"></span>
+        <button type="button" class="btn sponsor-btn"></button>`;
+      row.querySelector<HTMLElement>('.sponsor-name')!.textContent = sponsor.name;
+      row.querySelector<HTMLElement>('.sponsor-pay')!.textContent =
+        `${String(sponsor.payPerRace).replace('.', ',')} M€/carrera · exige P${sponsor.requiredPosition}`;
+      const btn = row.querySelector<HTMLButtonElement>('.sponsor-btn')!;
+      const isActive = career.sponsorId === sponsor.id;
+      const unlocked = isSponsorUnlocked(sponsor, career);
+      btn.textContent = isActive ? '✅ Activo' : unlocked ? 'Firmar' : `🔒 P${sponsor.requiredPosition}`;
+      btn.disabled = isActive || !unlocked;
+      btn.addEventListener('click', () => {
+        if (isActive || !unlocked) return;
+        career.sponsorId = sponsor.id;
+        syncAll();
+        refresh();
+      });
+      list.appendChild(row);
     }
-    roster = regenerateRivals(roster);
-    saveRoster(roster);
-    renderRivals();
-  });
+    panel.appendChild(list);
+  }
 
-  goRaceBtn.addEventListener('click', () => {
-    onGoRace();
-  });
-
-  renderRivals();
   refresh();
 }

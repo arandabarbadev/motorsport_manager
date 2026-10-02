@@ -6,28 +6,54 @@ import {
   TEAM_NAME_PREFIXES,
   TEAM_NAME_SUFFIXES,
 } from './names-data';
+import { ROSTER_STORAGE_KEY } from './storage-keys';
 
 // ============================================================
-// ROSTER (Phase 3): the player team + 9 rival teams (2 drivers
-// each = 20 cars). Persisted in localStorage under
-// "f1manager:roster:v1" and loaded on open instead of
-// regenerating from scratch.
+// ROSTER: the player team + 9 rival teams (2 drivers each = 20
+// cars). Persisted in localStorage under "f1manager:roster:v1".
+// The player entry also carries the car DEVELOPMENTS (9
+// categories, player request 2026-09-27).
 // ============================================================
 
-export const ROSTER_STORAGE_KEY = 'f1manager:roster:v1';
+export const INITIAL_BUDGET = 350; // M€ (player choice)
 
-// Economy balance numbers (approved by the player, 2026-09-26):
-export const INITIAL_BUDGET = 250; // M€ at the start of a career
-export const UPGRADE_COST = 25;    // M€ per upgrade click
-export const UPGRADE_STEP = 2;     // stat points per click (applies to BOTH cars)
-export const MAX_CAR_STAT = 95;    // cap for aero/engine/chassis
-export const PLAYER_START_STAT = 65; // below the rival average (60-85) so upgrades matter
+// Car development categories (each level = +1 effective stat point).
+export type DevId =
+  | 'aero' | 'alerones' | 'motor' | 'electronica' | 'chasis'
+  | 'suspension' | 'neumaticos' | 'seguridad' | 'volante';
 
-// Driver/car stat ranges, randomized at generation time (documented
-// ranges; rivals AND the player's drivers use the same ranges):
-//   pace 55-95, consistency 50-95, aggression 15-95,
-//   wetSkill 50-90, riskTolerance 10-90,
-//   rival car aero/engine/chassis 60-85, reliability 70-95.
+export const DEV_IDS: DevId[] = [
+  'aero', 'alerones', 'motor', 'electronica', 'chasis',
+  'suspension', 'neumaticos', 'seguridad', 'volante',
+];
+
+export const DEV_LABELS: Record<DevId, string> = {
+  aero: 'Aerodinámica',
+  alerones: 'Alerones del. y tras.',
+  motor: 'Motor',
+  electronica: 'Electrónica',
+  chasis: 'Chasis',
+  suspension: 'Suspensión',
+  neumaticos: 'Neumáticos',
+  seguridad: 'Seguridad',
+  volante: 'Volante',
+};
+
+// How each development maps onto the Car stats (used by race-builder):
+//   aero        -> aero
+//   alerones    -> aero
+//   motor       -> engine
+//   electronica -> engine
+//   chasis      -> chassis
+//   suspension  -> chassis
+//   neumaticos  -> chassis
+//   seguridad   -> reliability
+//   volante     -> reliability
+export const DEV_COST_PER_POINT = 15; // M€ (player choice; engineers discount applies)
+export const DEV_MAX_LEVEL = 10;
+export const MAX_CAR_STAT = 95; // cap for effective aero/engine/chassis
+export const PLAYER_START_STAT = 65; // player cars start below the rival average (60-85)
+
 const RIVAL_TEAM_COUNT = 9;
 const DRIVERS_PER_TEAM = 2;
 
@@ -35,6 +61,8 @@ export interface TeamEntry {
   team: Team;
   drivers: Driver[];
   cars: Car[];
+  // Player only: development levels by category (0..DEV_MAX_LEVEL).
+  developments?: Partial<Record<DevId, number>>;
 }
 
 export interface Roster {
@@ -124,6 +152,7 @@ export function createDefaultRoster(): Roster {
       chassis: PLAYER_START_STAT,
       reliability: 80,
     })),
+    developments: {}, // all categories start at level 0
   };
   const entries: TeamEntry[] = [player];
   for (let i = 0; i < RIVAL_TEAM_COUNT; i++) {
@@ -156,13 +185,16 @@ export function loadRoster(): Roster | null {
     const parsed = JSON.parse(raw) as Roster;
     if (parsed.version !== 1 || !Array.isArray(parsed.entries)) return null;
     if (parsed.entries.length !== RIVAL_TEAM_COUNT + 1) return null;
-    if (!parsed.entries.some((e) => e?.team?.id === parsed.playerTeamId)) return null;
+    const player = parsed.entries.find((e) => e?.team?.id === parsed.playerTeamId);
+    if (!player) return null;
     const shapeOk = parsed.entries.every(
       (e) =>
         e?.team && Array.isArray(e.drivers) && e.drivers.length === DRIVERS_PER_TEAM &&
         Array.isArray(e.cars) && e.cars.length === DRIVERS_PER_TEAM
     );
     if (!shapeOk) return null;
+    // Migration: older player entries have no developments.
+    if (!player.developments) player.developments = {};
     return parsed;
   } catch {
     return null; // corrupted save: start over
