@@ -23,8 +23,9 @@ import {
 } from './career';
 import { ALL_TRACKS, getTrackById } from './tracks-generator';
 import { themeButtonLabel, toggleTheme } from './theme';
-import { ALL_SPONSORS, getSponsor, isSponsorUnlocked } from './sponsors';
-import { computeRaceFinance } from './finance';
+import { ALL_SPONSORS, isSponsorUnlocked, MAX_ACTIVE_SPONSORS } from './sponsors';
+import { computeRaceFinance, sponsorIncome } from './finance';
+import { computeChampionship } from './championship';
 import { logout, scheduleCloudSync, watchAuth } from './cloud';
 
 // ============================================================
@@ -35,7 +36,7 @@ import { logout, scheduleCloudSync, watchAuth } from './cloud';
 // the race button.
 // ============================================================
 
-type TabId = 'team' | 'hq' | 'rivals' | 'sponsors';
+type TabId = 'team' | 'hq' | 'rivals' | 'sponsors' | 'champ';
 type StaffKey = 'mechanics' | 'engineers' | 'commercial';
 
 const STAFF_INFO: Record<StaffKey, { label: string; effect: (level: number) => string }> = {
@@ -72,6 +73,7 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
         <button type="button" class="btn nav-btn" data-tab="hq">Sede</button>
         <button type="button" class="btn nav-btn" data-tab="rivals">Rivales</button>
         <button type="button" class="btn nav-btn" data-tab="sponsors">Patrocinadores</button>
+        <button type="button" class="btn nav-btn" data-tab="champ">Campeonato</button>
       </nav>
       <div class="header-right">
         <div class="budget-chip"><span class="budget-value"></span> M</div>
@@ -185,7 +187,8 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
     if (tab === 'team') renderTeamTab();
     else if (tab === 'hq') renderHqTab();
     else if (tab === 'rivals') renderRivalsTab();
-    else renderSponsorsTab();
+    else if (tab === 'sponsors') renderSponsorsTab();
+    else renderChampTab();
   }
 
   // ---- Tab: Mi Equipo ----
@@ -387,15 +390,12 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
     title.textContent = 'Patrocinadores';
     panel.appendChild(title);
 
-    const active = getSponsor(career.sponsorId);
-    const current = document.createElement('p');
-    current.className = 'sponsor-current';
-    current.textContent = active
-      ? `Patrocinador actual: ${active.name} (+${String(
-          computeRaceFinance(0, career).sponsor
-        ).replace('.', ',')} M€ por carrera)`
-      : 'Sin patrocinador: firma uno para cobrar cada carrera.';
-    panel.appendChild(current);
+    const summary = document.createElement('p');
+    summary.className = 'sponsor-current';
+    summary.textContent = `${career.sponsorIds.length}/${MAX_ACTIVE_SPONSORS} firmados · Ingreso: +${String(
+      sponsorIncome(career)
+    ).replace('.', ',')} M€ por carrera`;
+    panel.appendChild(summary);
 
     const list = document.createElement('div');
     list.className = 'sponsor-list';
@@ -413,19 +413,97 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
       row.querySelector<HTMLElement>('.sponsor-pay')!.textContent =
         `${String(sponsor.payPerRace).replace('.', ',')} M€/carrera · exige P${sponsor.requiredPosition}`;
       const btn = row.querySelector<HTMLButtonElement>('.sponsor-btn')!;
-      const isActive = career.sponsorId === sponsor.id;
+      const isActive = career.sponsorIds.includes(sponsor.id);
       const unlocked = isSponsorUnlocked(sponsor, career);
-      btn.textContent = isActive ? 'Activo' : unlocked ? 'Firmar' : `P${sponsor.requiredPosition}`;
-      btn.disabled = isActive || !unlocked;
+      const full = career.sponsorIds.length >= MAX_ACTIVE_SPONSORS;
+      btn.textContent = isActive
+        ? 'Quitar'
+        : unlocked
+          ? full
+            ? 'Completo'
+            : 'Firmar'
+          : `P${sponsor.requiredPosition}`;
+      btn.disabled = (!isActive && (!unlocked || full)) ;
       btn.addEventListener('click', () => {
-        if (isActive || !unlocked) return;
-        career.sponsorId = sponsor.id;
+        if (isActive) {
+          career.sponsorIds = career.sponsorIds.filter((id) => id !== sponsor.id);
+        } else if (unlocked && !full) {
+          career.sponsorIds.push(sponsor.id);
+        } else {
+          return;
+        }
         syncAll();
         refresh();
       });
       list.appendChild(row);
     }
     panel.appendChild(list);
+  }
+
+  // ---- Tab: Campeonato ----
+  function renderChampTab(): void {
+    const title = document.createElement('h2');
+    title.textContent = 'Campeonato — Temporada ' + career.seasonNumber;
+    panel.appendChild(title);
+
+    const tables = computeChampionship(career.seasonResults);
+    if (tables.drivers.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'sponsor-current';
+      empty.textContent =
+        'Todavía no hay puntos. Corre carreras y la clasificación se llenará sola.';
+      panel.appendChild(empty);
+      return;
+    }
+
+    const makeTable = (
+      heading: string,
+      rows: { label: string; sub: string; points: number; color: string; mine: boolean }[]
+    ): HTMLElement => {
+      const wrap = document.createElement('div');
+      wrap.className = 'champ-table';
+      const h3 = document.createElement('h3');
+      h3.textContent = heading;
+      wrap.appendChild(h3);
+      rows.forEach((row, i) => {
+        const line = document.createElement('div');
+        line.className = 'champ-row' + (row.mine ? ' player' : '');
+        line.innerHTML = `
+          <span class="champ-pos">${i + 1}</span>
+          <span class="tcolor" style="background:${row.color}"></span>
+          <span class="champ-name"></span>
+          <span class="champ-pts">${row.points}</span>`;
+        const nameEl = line.querySelector<HTMLElement>('.champ-name')!;
+        nameEl.textContent = row.label;
+        nameEl.title = row.sub;
+        wrap.appendChild(line);
+      });
+      return wrap;
+    };
+
+    const driverRows = tables.drivers.map((d) => {
+      const driver = roster.entries.flatMap((e) => e.drivers).find((x) => x.id === d.driverId);
+      const team = roster.entries.find((e) => e.team.id === d.teamId)?.team;
+      return {
+        label: driver?.name ?? d.driverId,
+        sub: team?.name ?? d.teamId,
+        points: d.points,
+        color: team?.color ?? '#888888',
+        mine: d.teamId === roster.playerTeamId,
+      };
+    });
+    const teamRows = tables.teams.map((t) => {
+      const team = roster.entries.find((e) => e.team.id === t.teamId)?.team;
+      return {
+        label: team?.name ?? t.teamId,
+        sub: 'Constructores',
+        points: t.points,
+        color: team?.color ?? '#888888',
+        mine: t.teamId === roster.playerTeamId,
+      };
+    });
+    panel.appendChild(makeTable('Pilotos', driverRows));
+    panel.appendChild(makeTable('Constructores', teamRows));
   }
 
   refresh();

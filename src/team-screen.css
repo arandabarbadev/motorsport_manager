@@ -303,6 +303,49 @@
   white-space: nowrap;
 }
 
+/* Championship tables (Campeonato tab) */
+.champ-table {
+  margin-bottom: 18px;
+}
+
+.champ-table h3 {
+  margin: 12px 0 6px;
+  font-size: 13px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.champ-row {
+  display: grid;
+  grid-template-columns: 2em 0.9em 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 5px 6px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.champ-row.player {
+  background: var(--accent-bg);
+}
+
+.champ-pos {
+  color: var(--dim);
+}
+
+.champ-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.champ-pts {
+  font-weight: 700;
+  color: var(--accent-text);
+}
+
 @media (max-width: 720px) {
   .rival-row {
     grid-template-columns: 1fr;

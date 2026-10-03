@@ -27,6 +27,9 @@ const PART_B: string[] = [
 
 export const SPONSOR_COUNT = 100;
 
+// Signed sponsors at the same time (player choice, 2026-10-03).
+export const MAX_ACTIVE_SPONSORS = 5;
+
 export const ALL_SPONSORS: Sponsor[] = (() => {
   const used = new Set<string>();
   return Array.from({ length: SPONSOR_COUNT }, (_, i) => {

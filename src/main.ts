@@ -8,20 +8,22 @@ import { buildRaceStateFromRoster } from './race-builder';
 import { getOrCreateCareer, isSeasonComplete } from './career';
 import { ALL_TRACKS, getTrackById } from './tracks-generator';
 import { firebaseConfigured, initCloud, watchAuth } from './cloud';
+import { swapScreen } from './screen-transition';
 
 // Entry point: login (Firebase) or local mode, then management.
 // "Ir a la carrera" runs the calendar's current GP; a completed
-// season opens the summary.
+// season opens the summary. Every swap goes through the same
+// fade transition (Phase 7).
 const app = document.getElementById('app')!;
 
 initTheme();
 
 function showTeamScreen(): void {
-  createTeamScreen(app, showRaceScreen);
+  swapScreen(app, () => createTeamScreen(app, showRaceScreen));
 }
 
 function showSeasonScreen(): void {
-  createSeasonScreen(app, showTeamScreen);
+  swapScreen(app, () => createSeasonScreen(app, showTeamScreen));
 }
 
 function showRaceScreen(): void {
@@ -38,11 +40,15 @@ function showRaceScreen(): void {
   const track =
     getTrackById(career.calendar[career.currentRaceIndex]) ?? ALL_TRACKS[0];
   // The race uses a snapshot of roster + track taken when entering.
-  createRaceScreen(
-    app,
-    () => buildRaceStateFromRoster(roster, track, career),
-    showTeamScreen,
-    showSeasonScreen
+  const rosterSnapshot = roster;
+  const careerSnapshot = career;
+  swapScreen(app, () =>
+    createRaceScreen(
+      app,
+      () => buildRaceStateFromRoster(rosterSnapshot, track, careerSnapshot),
+      showTeamScreen,
+      showSeasonScreen
+    )
   );
 }
 

@@ -1,5 +1,7 @@
 import './race-screen.css';
 import { RaceCarState, RaceState, TyreCompound, Weather } from './types';
+import type { RaceEvent } from './types';
+import { standingsFromClassification } from './championship';
 import {
   getFinalClassification,
   isRaceFinished,
@@ -159,12 +161,49 @@ export function createRaceScreen(
   // Mutable screen state (rebuilt on restart).
   let state = buildInitialState();
   let sampler: TrackSampler = buildTrackSampler(state.track.path);
-  // Pre-tick positions, used to interpolate smooth motion between ticks.
+  // Phase 7 smooth motion: prevLapProgress/prevLap of each car from the
+  // PREVIOUS tick, kept here in the render layer only — the engine's
+  // RaceCarState stays untouched. The rendered position interpolates
+  // between prev and current with alpha = timeSinceLastTick / tickMs.
   const shadow = new Map<string, { lap: number; progress: number }>();
   let lastTickAt = performance.now();
   let clockSec = 0;
   let finished = false;
   let prizeAwarded = false; // prize money is added exactly once per race
+
+  // Race event feedback (Phase 7): brief highlights + floating texts,
+  // driven ONLY by the engine's per-tick raceEvents list.
+  const highlightUntil = new Map<string, number>();
+  interface FloatingText {
+    text: string;
+    driverId: string;
+    bornAt: number;
+  }
+  let floatingTexts: FloatingText[] = [];
+
+  function consumeRaceEvents(events: RaceEvent[]): void {
+    const now = performance.now();
+    for (const ev of events) {
+      if (ev.type === 'overtake') {
+        highlightUntil.set(ev.carDriverId, now + 900);
+        const car = state.cars.find((c) => c.driverId === ev.carDriverId);
+        if (car?.isPlayerControlled && ev.newPosition !== undefined) {
+          floatingTexts.push({
+            text: `¡Adelantamiento! P${ev.newPosition}`,
+            driverId: ev.carDriverId,
+            bornAt: now,
+          });
+        }
+      } else if (ev.type === 'pitEntry') {
+        highlightUntil.set(ev.carDriverId, now + 900);
+        const car = state.cars.find((c) => c.driverId === ev.carDriverId);
+        if (car?.isPlayerControlled) {
+          floatingTexts.push({ text: '¡A boxes!', driverId: ev.carDriverId, bornAt: now });
+        }
+      }
+    }
+    if (floatingTexts.length > 6) floatingTexts = floatingTexts.slice(-6);
+  }
   let pendingPit = new Set<string>();
   const rows = new Map<string, StandingRow>();
   const pitBoxes: PitBox[] = [];
@@ -295,6 +334,7 @@ export function createRaceScreen(
     }
     snapshotShadow();
     simulationTick(state);
+    consumeRaceEvents(state.raceEvents);
     clockSec += state.simTimeMultiplier;
     lastTickAt = performance.now();
 
@@ -322,6 +362,7 @@ export function createRaceScreen(
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(trackLayer, 0, 0);
     drawCars(now);
+    drawEffects(now);
     if (now - lastHudAt >= HUD_INTERVAL_MS) {
       updateHud();
       updateHeader();
@@ -332,10 +373,49 @@ export function createRaceScreen(
 
   let lastHudAt = 0;
 
+  const carRadius = (): number => Math.max(4, 0.016 * Math.min(canvas.width, canvas.height));
+
+  // Event feedback layer: highlight rings + rising floating texts.
+  function drawEffects(now: number): void {
+    const r = carRadius();
+    for (const car of state.cars) {
+      const until = highlightUntil.get(car.driverId) ?? 0;
+      if (now >= until) continue;
+      const total = car.currentLap + car.lapProgress;
+      const p = toPx(sampler.pointAt(total));
+      const life = (until - now) / 900; // 1 -> 0
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r + 5 + (1 - life) * 3, 0, Math.PI * 2);
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 * life})`;
+      ctx.stroke();
+    }
+    floatingTexts = floatingTexts.filter((f) => now - f.bornAt < 1200);
+    ctx.font = 'bold 13px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    for (const f of floatingTexts) {
+      const car = state.cars.find((c) => c.driverId === f.driverId);
+      if (!car) continue;
+      const total = car.currentLap + car.lapProgress;
+      const p = toPx(sampler.pointAt(total));
+      const progress = (now - f.bornAt) / 1200;
+      const y = p.y - r - 8 - progress * 26;
+      ctx.globalAlpha = 1 - progress;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.strokeText(f.text, p.x, y);
+      ctx.fillStyle = '#ffd700';
+      ctx.fillText(f.text, p.x, y);
+      ctx.globalAlpha = 1;
+    }
+    ctx.textAlign = 'start';
+  }
+
   function drawCars(now: number): void {
-    // Interpolate positions between the last two ticks for smooth motion.
+    // Interpolate positions between the last two ticks for smooth motion
+    // (prevLapProgress -> lapProgress, alpha = timeSinceLastTick / tickMs).
     const alpha = Math.min(1, (now - lastTickAt) / TICK_MS);
-    const r = Math.max(4, 0.016 * Math.min(canvas.width, canvas.height));
+    const r = carRadius();
     const sorted = [...state.cars].sort((a, b) => b.position - a.position);
     for (const car of sorted) {
       const sh = shadow.get(car.driverId) ?? {
@@ -482,7 +562,7 @@ export function createRaceScreen(
   function buildPitPanel(): void {
     pitPanel.innerHTML = '<h2 class="hud-title">Mis boxes</h2>';
     pitBoxes.length = 0;
-    const compounds: TyreCompound[] = ['soft', 'medium', 'hard'];
+    const compounds: TyreCompound[] = ['soft', 'medium', 'hard', 'wet'];
     for (const car of state.cars.filter((c) => c.isPlayerControlled)) {
       const box = document.createElement('div');
       box.className = 'pit-box';
@@ -582,6 +662,8 @@ export function createRaceScreen(
           trackId: state.track.id,
           position: bestPosition,
           prize: totalPrize,
+          // Phase 7: championship points for every driver of this race.
+          standings: standingsFromClassification(getFinalClassification(state)),
         });
         // Breakdown rows for the results overlay.
         financeListEl.innerHTML = '';

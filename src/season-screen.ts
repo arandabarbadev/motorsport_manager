@@ -65,9 +65,21 @@ export function createSeasonScreen(container: HTMLElement, onExit: () => void): 
   const totals = document.createElement('div');
   totals.className = 'season-totals';
   totals.innerHTML = `
-    <div>Total ganado en premios: <strong>${total} M€</strong></div>
+    <div>Total ganado en premios: <strong class="count-total">0</strong> M€</div>
     <div>Presupuesto del equipo: <strong>${career.budget} M€</strong></div>`;
   card.appendChild(totals);
+
+  // Phase 7 celebration: count-up of the money won (plain rAF, no libs).
+  const countEl = card.querySelector<HTMLElement>('.count-total')!;
+  const startAt = performance.now();
+  const DURATION_MS = 1600;
+  const step = (t: number): void => {
+    const p = Math.min(1, (t - startAt) / DURATION_MS);
+    const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+    countEl.textContent = String(Math.round(total * eased));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 
   const actions = document.createElement('div');
   actions.className = 'season-actions';

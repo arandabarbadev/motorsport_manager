@@ -107,5 +107,6 @@ export function buildRaceStateFromRoster(
     isPaused: false,
     flag: 'green',
     flagTimerSec: 0,
+    raceEvents: [],
   };
 }

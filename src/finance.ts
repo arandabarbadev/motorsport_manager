@@ -21,12 +21,17 @@ export interface RaceFinance {
   net: number;
 }
 
-// Sponsor income with the commercial staff bonus (+5% per level).
+// Sum of the signed sponsors' pay with the commercial staff bonus
+// (+5% per level). Up to MAX_ACTIVE_SPONSORS at once.
 export function sponsorIncome(career: CareerState): number {
-  const sponsor = getSponsor(career.sponsorId);
-  if (!sponsor) return 0;
+  if (career.sponsorIds.length === 0) return 0;
   const bonus = 1 + 0.05 * (career.staff.commercial - 1);
-  return Math.round(sponsor.payPerRace * bonus * 10) / 10;
+  let total = 0;
+  for (const id of career.sponsorIds) {
+    const sponsor = getSponsor(id);
+    if (sponsor) total += sponsor.payPerRace;
+  }
+  return Math.round(total * bonus * 10) / 10;
 }
 
 export function computeRaceFinance(prize: number, career: CareerState): RaceFinance {

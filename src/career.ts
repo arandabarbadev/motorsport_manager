@@ -1,6 +1,7 @@
 import { INITIAL_BUDGET } from './roster';
 import { ALL_TRACKS } from './tracks-generator';
 import { CAREER_STORAGE_KEY } from './storage-keys';
+import type { RaceStandingEntry } from './championship';
 
 // ============================================================
 // CAREER STATE: persistent economy and season.
@@ -25,6 +26,8 @@ export interface SeasonResult {
   trackId: string;
   position: number; // best of the two player cars
   prize: number; // total prize money of that race (both cars)
+  // Phase 7: points earned by every driver in this race (championship).
+  standings?: RaceStandingEntry[];
 }
 
 export interface CareerState {
@@ -35,7 +38,7 @@ export interface CareerState {
   seasonNumber: number; // starts at 1
   seasonResults: SeasonResult[]; // one entry per completed race
   staff: StaffState;
-  sponsorId: number | null;
+  sponsorIds: number[]; // signed sponsors (up to MAX_ACTIVE_SPONSORS)
 }
 
 export function createDefaultCareer(budget: number = INITIAL_BUDGET): CareerState {
@@ -47,7 +50,7 @@ export function createDefaultCareer(budget: number = INITIAL_BUDGET): CareerStat
     seasonNumber: 1,
     seasonResults: [],
     staff: { mechanics: 1, engineers: 1, commercial: 1 },
-    sponsorId: null,
+    sponsorIds: [],
   };
 }
 
@@ -87,7 +90,12 @@ export function loadCareer(): CareerState | null {
         engineers: parsed.staff?.engineers ?? 1,
         commercial: parsed.staff?.commercial ?? 1,
       },
-      sponsorId: typeof parsed.sponsorId === 'number' ? parsed.sponsorId : null,
+      // Migration: the old single sponsorId becomes a one-item list.
+      sponsorIds: Array.isArray(parsed.sponsorIds)
+        ? parsed.sponsorIds
+        : typeof (parsed as { sponsorId?: number | null }).sponsorId === 'number'
+          ? [(parsed as { sponsorId: number }).sponsorId]
+          : [],
     };
     return merged;
   } catch {

@@ -22,6 +22,10 @@ Juego de gestión de escudería de F1 estilo *Motorsport Manager*: gestión de e
 - Accidentes y averías con banderas amarillas/rojas y bandera a cuadros al terminar
 - Finanzas de carrera: premios + patrocinio − sueldos − alquiler
 - Velocidades 1x/5x/10x/20x y botón de reinicio total de la partida
+- Campeonato de pilotos y constructores con puntos F1 (25-18-15...)
+- Clima dinámico durante la carrera (seco/lluvia) con gomas de lluvia
+- Hasta 5 patrocinadores firmados a la vez
+- Animaciones: movimiento interpolado, eventos de adelantamiento y boxes, transiciones entre pantallas y contador de fin de temporada
 
 ## Stack
 

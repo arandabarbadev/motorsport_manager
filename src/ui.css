@@ -67,6 +67,27 @@ body {
   display: none !important;
 }
 
+/* Shared screen transition (Phase 7): same fade for every screen */
+.screen-leave {
+  animation: screen-out 150ms ease forwards;
+}
+
+.screen-enter {
+  animation: screen-in 200ms ease;
+}
+
+@keyframes screen-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+  }
+}
+
 .btn {
   background: var(--btn-bg);
   color: var(--text);
