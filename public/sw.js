@@ -1,9 +1,12 @@
 // ============================================================
-// SERVICE WORKER (PWA): cache-first for same-origin GET requests
-// so the installed game works offline. Hand-written, no
-// dependencies. Bump CACHE to invalidate old files.
+// SERVICE WORKER (PWA): offline support without getting stuck on
+// old deploys.
+//   - Navigations (the HTML): network-first, so every new deploy
+//     appears immediately; cache is the offline fallback.
+//   - Same-origin assets (hashed, immutable names): cache-first.
+// Bump CACHE to invalidate everything on a breaking change.
 // ============================================================
-const CACHE = 'f1manager-v1';
+const CACHE = 'f1manager-v2';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -21,21 +24,41 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
+
+  if (event.request.mode === 'navigate') {
+    // The page itself: always prefer the network (fresh deploys),
+    // fall back to the cache when offline.
+    event.respondWith(
+      (async () => {
+        try {
+          const fresh = await fetch(event.request);
+          const cache = await caches.open(CACHE);
+          cache.put(event.request, fresh.clone());
+          return fresh;
+        } catch {
+          const cache = await caches.open(CACHE);
+          return (
+            (await cache.match(event.request)) ||
+            (await cache.match('./index.html')) ||
+            (await cache.match('index.html'))
+          );
+        }
+      })()
+    );
+    return;
+  }
+
+  // Hashed assets: immutable names, safe to serve cache-first.
   event.respondWith(
     (async () => {
       const cache = await caches.open(CACHE);
-      const hit = await cache.match(event.request, {
-        ignoreSearch: url.pathname.endsWith('/'),
-      });
+      const hit = await cache.match(event.request);
       if (hit) return hit;
       try {
         const response = await fetch(event.request);
         if (response.ok) cache.put(event.request, response.clone());
         return response;
       } catch (err) {
-        const fallback =
-          (await cache.match('./index.html')) || (await cache.match('index.html'));
-        if (fallback) return fallback;
         throw err;
       }
     })()
