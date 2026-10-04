@@ -28,6 +28,12 @@ import { computeRaceFinance, sponsorIncome } from './finance';
 import { computeChampionship } from './championship';
 import { logout, scheduleCloudSync, watchAuth } from './cloud';
 
+// Minimal shape of the browser's beforeinstallprompt event.
+interface InstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: string }>;
+}
+
 // ============================================================
 // TEAM SCREEN: management hub with 4 tabs (player request
 // 2026-09-27): Mi Equipo (identity + 9 car developments), Sede
@@ -79,6 +85,7 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
         <div class="budget-chip"><span class="budget-value"></span> M</div>
         <button type="button" class="btn reset-season-btn" title="Empezar de cero: reinicia dinero, patrocinador, desarrollos, sede y temporada">Reiniciar</button>
         <button type="button" class="btn theme-btn"></button>
+        <button type="button" class="btn install-btn hidden">Instalar app</button>
         <button type="button" class="btn logout-btn hidden">Salir</button>
         <button type="button" class="btn primary go-race-btn">Carrera</button>
       </div>
@@ -137,6 +144,22 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
   });
   logoutBtn.addEventListener('click', () => {
     void logout().then(() => location.reload());
+  });
+
+  // In-app install button (appears when the browser offers install;
+  // iOS Safari instead uses Share > Add to home screen).
+  const installBtn = root.querySelector<HTMLButtonElement>('.install-btn')!;
+  let installPromptEvent: InstallPromptEvent | null = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installPromptEvent = e as InstallPromptEvent;
+    installBtn.classList.remove('hidden');
+  });
+  installBtn.addEventListener('click', () => {
+    if (!installPromptEvent) return;
+    void installPromptEvent.prompt();
+    installPromptEvent = null;
+    installBtn.classList.add('hidden');
   });
 
   resetBtn.addEventListener('click', () => {

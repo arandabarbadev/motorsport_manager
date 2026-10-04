@@ -6,7 +6,7 @@
 //   - Same-origin assets (hashed, immutable names): cache-first.
 // Bump CACHE to invalidate everything on a breaking change.
 // ============================================================
-const CACHE = 'f1manager-v2';
+const CACHE = 'f1manager-v3';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -26,12 +26,13 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
 
   if (event.request.mode === 'navigate') {
-    // The page itself: always prefer the network (fresh deploys),
-    // fall back to the cache when offline.
+    // The page itself: always prefer the network (fresh deploys show up
+    // immediately), fall back to the cache when offline. 'no-cache'
+    // revalidates with the server instead of trusting the local copy.
     event.respondWith(
       (async () => {
         try {
-          const fresh = await fetch(event.request);
+          const fresh = await fetch(event.request, { cache: 'no-cache' });
           const cache = await caches.open(CACHE);
           cache.put(event.request, fresh.clone());
           return fresh;
