@@ -10,6 +10,10 @@ import { CareerState } from './career';
 //   - mechanics    -> shorter pit stops for the player's cars
 // ============================================================
 
+// Rain lottery (player request: rain only in SOME races): 40% of the
+// races are built with weather that can change; the rest stay dry.
+const RAIN_RACE_CHANCE = 0.4;
+
 // Expected pace factor used to line up the grid (fastest first),
 // same weighting as the simulation's basePaceFactor.
 export const expectedPace = (d: Driver, spec: Car): number =>
@@ -108,5 +112,6 @@ export function buildRaceStateFromRoster(
     flag: 'green',
     flagTimerSec: 0,
     raceEvents: [],
+    weatherCanChange: Math.random() < RAIN_RACE_CHANCE,
   };
 }

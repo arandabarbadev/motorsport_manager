@@ -534,7 +534,10 @@ export function createRaceScreen(
     const leaderLap = Math.max(...state.cars.map((c) => c.currentLap));
     lapEl.textContent = `Vuelta ${Math.min(leaderLap + 1, state.track.totalLaps)}/${state.track.totalLaps}`;
     clockEl.textContent = formatClock(clockSec);
-    weatherEl.textContent = WEATHER_LABEL[state.weather];
+    weatherEl.textContent =
+      WEATHER_LABEL[state.weather] +
+      // Strategy hint while it is still dry in a race with rain risk.
+      (state.weatherCanChange && state.weather === 'dry' ? ' · riesgo de lluvia' : '');
     // Race control flags, top-left over the track.
     if (finished) {
       flagEl.textContent = '¡BANDERA A CUADROS!';

@@ -95,6 +95,9 @@ export interface RaceState {
   // Engine extension (Phase 7): events produced by THIS tick
   // (overtakes, pit entries). Replaced every tick.
   raceEvents: RaceEvent[];
+  // Engine extension: false = this race stays dry from start to finish
+  // (rain is a per-race lottery, not every race).
+  weatherCanChange: boolean;
 }
 
 export interface PitCommand {

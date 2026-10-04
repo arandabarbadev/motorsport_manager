@@ -41,7 +41,9 @@ const YELLOW_PACE_FACTOR = 0.55;           // everyone slows behind the yellow
 
 // Dynamic weather (Phase 7, starting values): chance per simulated
 // second of one step change (dry <-> lightRain <-> heavyRain), about
-// 3 changes per race. Drivers with high wetSkill suffer less.
+// 3 changes per race — but ONLY in races where weatherCanChange is
+// true (per-race lottery set by the race builder). Drivers with high
+// wetSkill suffer less.
 const WEATHER_CHANGE_PER_SEC = 1 / 1500;
 
 // Fallbacks if an id is missing from the roster (keeps the sim running).
@@ -235,8 +237,10 @@ export function simulationTick(state: RaceState): void {
   state.currentTick++;
 }
 
-// Dynamic weather: one step up or down, never skipping steps.
+// Dynamic weather: one step up or down, never skipping steps. Races
+// without rain risk stay dry all the way.
 function maybeWeatherChange(state: RaceState, seconds: number): void {
+  if (!state.weatherCanChange) return;
   if (Math.random() > WEATHER_CHANGE_PER_SEC * seconds) return;
   if (state.weather === 'dry') state.weather = 'lightRain';
   else if (state.weather === 'lightRain') {
