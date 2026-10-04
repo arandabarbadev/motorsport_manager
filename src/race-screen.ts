@@ -6,6 +6,7 @@ import {
   getFinalClassification,
   isRaceFinished,
   queuePitCommand,
+  resetPitCommands,
   simulationTick,
 } from './simulation';
 import { prizeForPosition } from './prize-table';
@@ -219,6 +220,7 @@ export function createRaceScreen(
 
   // Full (re)build: used on first load and on "Nueva carrera".
   function setup(): void {
+    resetPitCommands(); // no pit orders survive between races
     state = buildInitialState();
     state.simTimeMultiplier = 1; // start slow, the player speeds up at will
     sampler = buildTrackSampler(state.track.path);
@@ -510,7 +512,7 @@ export function createRaceScreen(
         pendingPit.delete(box.carDriverId);
         box.status.textContent = `En boxes: ${Math.ceil(car.pitTimerSec)}s`;
       } else if (pendingPit.has(box.carDriverId)) {
-        box.status.textContent = 'Orden enviada…';
+        box.status.textContent = 'Entra en boxes al cruzar meta…';
       } else {
         box.status.textContent = `${car.pitStopsCompleted} parada(s)`;
       }
@@ -578,7 +580,8 @@ export function createRaceScreen(
         btn.textContent = COMPOUND_LABEL[compound];
         btn.title = compound;
         btn.addEventListener('click', () => {
-          // Player command: queued and applied at the next tick start.
+          // Player command: queued NOW, executed when the car crosses
+          // the start/finish line (never mid-lap).
           if (finished || state.isPaused || car.status !== 'racing') return;
           queuePitCommand({
             carDriverId: car.driverId,
@@ -586,6 +589,11 @@ export function createRaceScreen(
             requestedAtTick: state.currentTick,
           });
           pendingPit.add(car.driverId);
+          floatingTexts.push({
+            text: 'Boxes al cruzar meta',
+            driverId: car.driverId,
+            bornAt: performance.now(),
+          });
         });
         btns.appendChild(btn);
         return btn;

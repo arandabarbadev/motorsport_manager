@@ -65,10 +65,21 @@ const FALLBACK_CAR: Car = {
 
 const commandQueue: PitCommand[] = [];
 
+// Pending pit stops: a queued command is held until the car CROSSES THE
+// START/FINISH LINE — the stop then happens at the line, like real F1,
+// instead of freezing the car wherever it is on the lap.
+const pendingPits = new Map<string, PitCommand>();
+
 export function queuePitCommand(cmd: PitCommand): void {
   // Ignore duplicate pending commands for the same driver.
   if (commandQueue.some((c) => c.carDriverId === cmd.carDriverId)) return;
   commandQueue.push(cmd);
+}
+
+// Clear everything (called when a fresh race is built).
+export function resetPitCommands(): void {
+  commandQueue.length = 0;
+  pendingPits.clear();
 }
 
 function lookupDriver(state: RaceState, car: RaceCarState): Driver {
@@ -166,7 +177,7 @@ export function simulationTick(state: RaceState): void {
   // render, replaced on the next tick (never inferred in the render).
   const events: RaceEvent[] = [];
   state.raceEvents = events;
-  applyQueuedCommands(state, events);
+  applyQueuedCommands(state);
 
   const seconds = state.simTimeMultiplier;
 
@@ -206,6 +217,9 @@ export function simulationTick(state: RaceState): void {
       if (car.lapProgress >= 1) {
         car.lapProgress -= 1;
         car.currentLap++;
+        // Pit entry happens exactly at the start/finish line; the car
+        // stops moving for the rest of this tick.
+        if (startPitStop(state, car, events)) break;
       }
       car.tyre.wear = Math.min(100, car.tyre.wear + computeWearRate(car, state.track));
       car.tyre.lapsOnTyre += pace / REFERENCE_LAP_SEC;
@@ -232,17 +246,31 @@ function maybeWeatherChange(state: RaceState, seconds: number): void {
   }
 }
 
-function applyQueuedCommands(state: RaceState, events: RaceEvent[]): void {
+function applyQueuedCommands(state: RaceState): void {
+  // Commands move from the queue to "pending": the car keeps racing and
+  // boxes when it crosses the start/finish line (see the lap wrap in
+  // simulationTick).
   while (commandQueue.length > 0) {
     const cmd = commandQueue.shift()!;
     const car = state.cars.find((c) => c.driverId === cmd.carDriverId);
     if (!car || car.status !== 'racing') continue;
-    car.status = 'inPit';
-    car.pitTimerSec = car.pitLaneTimeOverrideSec ?? state.track.pitLaneTimeLoss;
-    car.tyre = { compound: cmd.newCompound, wear: 0, lapsOnTyre: 0 };
-    car.pitStopsCompleted++;
-    events.push({ type: 'pitEntry', carDriverId: car.driverId });
+    pendingPits.set(car.driverId, cmd);
   }
+}
+
+// Execute the stop at the start/finish line. Returns true if the car
+// entered the pits.
+function startPitStop(state: RaceState, car: RaceCarState, events: RaceEvent[]): boolean {
+  const cmd = pendingPits.get(car.driverId);
+  if (!cmd) return false;
+  pendingPits.delete(car.driverId);
+  if (car.status !== 'racing') return false;
+  car.status = 'inPit';
+  car.pitTimerSec = car.pitLaneTimeOverrideSec ?? state.track.pitLaneTimeLoss;
+  car.tyre = { compound: cmd.newCompound, wear: 0, lapsOnTyre: 0 };
+  car.pitStopsCompleted++;
+  events.push({ type: 'pitEntry', carDriverId: car.driverId });
+  return true;
 }
 
 // ------------------------------------------------------------

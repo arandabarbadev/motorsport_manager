@@ -351,9 +351,30 @@
     flex-direction: column;
   }
 
+  /* Compact race UI on phones: smaller controls, more track and
+     standings visible in the vertical layout. */
+  .race-header {
+    padding: 6px 8px;
+    gap: 4px 8px;
+  }
+
+  .race-header .btn {
+    padding: 5px 8px;
+    font-size: 12px;
+    min-height: 30px;
+  }
+
+  .race-meta {
+    display: none;
+  }
+
+  .race-name {
+    display: none;
+  }
+
   .track-wrap {
     flex: none;
-    height: 44vh;
+    height: 38vh;
   }
 
   .hud {
@@ -361,5 +382,42 @@
     flex: 1;
     border-left: none;
     border-top: 1px solid var(--border);
+    padding: 6px 8px;
+  }
+
+  .hud-title {
+    margin: 6px 0 4px;
+    font-size: 10px;
+  }
+
+  .pit-box {
+    padding: 6px 8px;
+    margin-bottom: 6px;
+  }
+
+  .pit-name {
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .pit-status {
+    margin-top: 4px;
+    font-size: 11px;
+  }
+
+  .standing-row {
+    font-size: 11px;
+    padding: 3px 4px;
+    gap: 4px;
+    grid-template-columns: 1.5em 0.8em 1fr 3.6em 1.1em 2.8em 2.2em;
+  }
+
+  .standing-row .pitflag {
+    font-size: 9px;
+  }
+
+  .wear {
+    height: 6px;
+    border-radius: 3px;
   }
 }
