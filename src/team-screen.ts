@@ -5,7 +5,7 @@ import {
   loadRoster,
   regenerateRivals,
   saveRoster,
-  DEV_COST_PER_POINT,
+  devCost,
   DEV_IDS,
   DEV_LABELS,
   DEV_MAX_LEVEL,
@@ -166,7 +166,7 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
   resetBtn.addEventListener('click', () => {
     if (
       !window.confirm(
-        '¿Empezar de CERO? Se reinicia TODO: dinero (350 M), patrocinador, desarrollos del coche, sede y temporada. Solo se conservan los nombres de tu equipo y pilotos.'
+        '¿Empezar de CERO? Se reinicia TODO: dinero (200 M), patrocinadores, desarrollos del coche, sede y temporada. Solo se conservan los nombres de tu equipo y pilotos.'
       )
     ) {
       return;
@@ -270,10 +270,11 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
     devList.className = 'dev-list';
     const developments = playerEntry().developments ?? {};
     playerEntry().developments = developments;
-    // Engineers discount on development costs.
-    const cost = Math.ceil(DEV_COST_PER_POINT * (1 - 0.05 * (career.staff.engineers - 1)));
     for (const devId of DEV_IDS) {
       const level = developments[devId] ?? 0;
+      // Cost of the NEXT level, rising per level (spec 009), with the
+      // engineers discount on top.
+      const cost = Math.ceil(devCost(level) * (1 - 0.05 * (career.staff.engineers - 1)));
       const row = document.createElement('div');
       row.className = 'dev-row';
       row.innerHTML = `

@@ -19,7 +19,7 @@ export interface StaffState {
   commercial: number; // levels 1..5: +5% sponsor income per level
 }
 
-export const STAFF_MAX_LEVEL = 5;
+export const STAFF_MAX_LEVEL = 10; // spec 009 (was 5)
 export const STAFF_UPGRADE_BASE_COST = 30; // M€: next level costs 30 x nextLevel
 
 export interface SeasonResult {

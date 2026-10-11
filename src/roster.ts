@@ -15,7 +15,7 @@ import { ROSTER_STORAGE_KEY } from './storage-keys';
 // categories, player request 2026-09-27).
 // ============================================================
 
-export const INITIAL_BUDGET = 350; // M€ (player choice)
+export const INITIAL_BUDGET = 200; // M€ (harder economy, spec 009 — was 350)
 
 // Car development categories (each level = +1 effective stat point).
 export type DevId =
@@ -49,8 +49,14 @@ export const DEV_LABELS: Record<DevId, string> = {
 //   neumaticos  -> chassis
 //   seguridad   -> reliability
 //   volante     -> reliability
-export const DEV_COST_PER_POINT = 15; // M€ (player choice; engineers discount applies)
-export const DEV_MAX_LEVEL = 10;
+export const DEV_COST_PER_POINT = 15; // M€ base (engineers discount applies)
+export const DEV_MAX_LEVEL = 15; // spec 009 (was 10)
+
+// Cost of the NEXT development level: each level is more expensive
+// than the previous one (spec 009): 15, 30, 45... M€.
+export function devCost(currentLevel: number): number {
+  return DEV_COST_PER_POINT * (currentLevel + 1);
+}
 export const MAX_CAR_STAT = 95; // cap for effective aero/engine/chassis
 export const PLAYER_START_STAT = 65; // player cars start below the rival average (60-85)
 

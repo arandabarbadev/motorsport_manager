@@ -25,10 +25,11 @@ const PART_B: string[] = [
   'Steel', 'Glass', 'Sound', 'Press',
 ];
 
-export const SPONSOR_COUNT = 100;
+export const SPONSOR_COUNT = 150; // spec 009 (was 100)
 
-// Signed sponsors at the same time (player choice, 2026-10-03).
-export const MAX_ACTIVE_SPONSORS = 5;
+// Signed sponsors at the same time (player choice, 2026-10-03;
+// raised to 8 with the harder economy, spec 009).
+export const MAX_ACTIVE_SPONSORS = 8;
 
 export const ALL_SPONSORS: Sponsor[] = (() => {
   const used = new Set<string>();
@@ -41,7 +42,9 @@ export const ALL_SPONSORS: Sponsor[] = (() => {
     return {
       id: i,
       name,
-      payPerRace: Math.round((0.5 + (i / (SPONSOR_COUNT - 1)) * 4.5) * 10) / 10,
+      // spec 009: 0.3..3.0 M€/race (was 0.5..5.0) — sponsorship funds
+      // less of the upgrade bill now.
+      payPerRace: Math.round((0.3 + (i / (SPONSOR_COUNT - 1)) * 2.7) * 10) / 10,
       requiredPosition: Math.max(1, Math.round(20 - (i / (SPONSOR_COUNT - 1)) * 19)),
     };
   });
