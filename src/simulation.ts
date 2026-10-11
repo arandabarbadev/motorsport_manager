@@ -50,6 +50,7 @@ const WEATHER_CHANGE_PER_SEC = 1 / 1500;
 const FALLBACK_DRIVER: Driver = {
   id: 'fallback-driver',
   name: 'Unknown Driver',
+  number: 0,
   pace: 70,
   consistency: 70,
   aggression: 50,

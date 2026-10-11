@@ -123,3 +123,41 @@ body {
 .btn.primary:hover:not(:disabled) {
   background: #2ea043;
 }
+
+/* First-time guide card (spec 008): floats over the screen, never
+   blocks it (one tap closes it), readable in both themes and on
+   narrow phones. */
+.guide-card {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  max-width: min(440px, calc(100vw - 24px));
+  background: var(--panel);
+  border: 1px solid var(--accent-bg-border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  padding: 14px 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.guide-card h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--accent-text);
+}
+
+.guide-card ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.guide-card .btn {
+  justify-self: end;
+}

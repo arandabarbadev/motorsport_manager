@@ -14,6 +14,9 @@ export type RaceFlag = 'green' | 'yellow' | 'red';
 export interface Driver {
   id: string;
   name: string;
+  // Race number (1-20): identifies the car without relying on team
+  // colors (colorblind accessibility, spec 008).
+  number: number;
   pace: number;
   consistency: number;
   aggression: number;

@@ -45,6 +45,7 @@ function buildTestRoster(): Roster {
       drivers.push({
         id: `driver-${teamIndex}-${seat}`,
         name: `Driver ${String(teamIndex * 2 + seat + 1).padStart(2, '0')}`,
+        number: teamIndex * 2 + seat + 1,
         pace: Math.round(rand(55, 95)),
         consistency: Math.round(rand(50, 95)),
         aggression: Math.round(rand(15, 95)),

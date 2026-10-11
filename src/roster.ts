@@ -106,6 +106,8 @@ function generateRivalEntry(index: number, usedNames: Set<string>): TeamEntry {
     drivers.push({
       id: `${teamId}-d${seat}`,
       name: uniqueDriverName(usedNames),
+      // Race numbers 3-20 for the rivals (the player keeps 1-2).
+      number: 3 + index * 2 + seat,
       ...randomDriverStats(),
     });
     cars.push({
@@ -142,6 +144,7 @@ export function createDefaultRoster(): Roster {
     drivers: [0, 1].map((seat) => ({
       id: `player-team-d${seat}`,
       name: `Piloto ${seat + 1}`,
+      number: seat + 1,
       ...randomDriverStats(),
     })),
     cars: [0, 1].map((seat) => ({
@@ -195,6 +198,13 @@ export function loadRoster(): Roster | null {
     if (!shapeOk) return null;
     // Migration: older player entries have no developments.
     if (!player.developments) player.developments = {};
+    // Migration: older saves have no race numbers (spec 008) — assign
+    // by flat position (player entries are first, so they get 1-2).
+    parsed.entries
+      .flatMap((e) => e.drivers)
+      .forEach((d, i) => {
+        if (typeof d.number !== 'number') d.number = i + 1;
+      });
     return parsed;
   } catch {
     return null; // corrupted save: start over

@@ -27,6 +27,7 @@ import { ALL_SPONSORS, isSponsorUnlocked, MAX_ACTIVE_SPONSORS } from './sponsors
 import { computeRaceFinance, sponsorIncome } from './finance';
 import { computeChampionship } from './championship';
 import { logout, scheduleCloudSync, watchAuth } from './cloud';
+import { showGuideOnce } from './guide';
 
 // Minimal shape of the browser's beforeinstallprompt event.
 interface InstallPromptEvent extends Event {
@@ -413,6 +414,17 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
     title.textContent = 'Patrocinadores';
     panel.appendChild(title);
 
+    showGuideOnce(
+      'sponsors',
+      'Patrocinadores en 4 ideas',
+      [
+        'Firma hasta 8 patrocinadores a la vez (botón Firmar).',
+        'Los mejores pagan más por carrera, pero exigen resultados (P1-P20).',
+        'Sin resultados solo puedes firmar los peores: corre y vuelve.',
+        'Cada carrera cobras sus pagos, menos sueldos y alquiler (mira el balance al terminar).',
+      ]
+    );
+
     const summary = document.createElement('p');
     summary.className = 'sponsor-current';
     summary.textContent = `${career.sponsorIds.length}/${MAX_ACTIVE_SPONSORS} firmados · Ingreso: +${String(
@@ -530,4 +542,16 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
   }
 
   refresh();
+
+  // First-time guide for the management hub (once per browser).
+  showGuideOnce(
+    'team',
+    'Mi Equipo en 4 ideas',
+    [
+      'Este es tu equipo: nombre, color y pilotos arriba; tu dinero en la esquina.',
+      'El presupuesto se gasta en dos sitios: desarrollar el coche (aquí) o la sede.',
+      'Tu coche sale por debajo de los rivales: cada mejora cuenta.',
+      'El botón Carrera te lleva al Gran Premio que toca.',
+    ]
+  );
 }

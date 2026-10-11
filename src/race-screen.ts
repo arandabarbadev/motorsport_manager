@@ -15,6 +15,7 @@ import { getTrackById } from './tracks-generator';
 import { onThemeChange, themeButtonLabel, toggleTheme } from './theme';
 import { computeRaceFinance } from './finance';
 import { scheduleCloudSync } from './cloud';
+import { showGuideOnce } from './guide';
 import { buildTrackSampler, Point, TrackSampler } from './track-path';
 
 // ============================================================
@@ -239,6 +240,17 @@ export function createRaceScreen(
     updateHeader();
     updateHud();
     resize();
+    // First-time guide for the race screen (once per browser).
+    showGuideOnce(
+      'race',
+      'Carrera y boxes en 4 ideas',
+      [
+        'La carrera corre sola: pausa y velocidades (1x-20x) arriba.',
+        'Tus paradas se ordenan en "Mis boxes": elige la goma y el coche entrará al cruzar meta.',
+        'La tabla muestra hueco, goma y desgaste de los 20 coches.',
+        'Cada coche lleva su dorsal: identifícalos sin depender de los colores.',
+      ]
+    );
   }
 
   // ---- Track drawing (offscreen layer) ----
@@ -450,6 +462,23 @@ export function createRaceScreen(
       ctx.lineWidth = Math.max(1.2, r * 0.3);
       ctx.strokeStyle = car.isPlayerControlled ? '#ffd700' : cssVar('--car-outline');
       ctx.stroke();
+
+      // Race number above the dot (spec 008): identifies the car
+      // without relying on team colors. Light text with a dark
+      // outline stays readable over any team color and background.
+      const dorsal = String(driverById(car.driverId).number ?? '');
+      if (dorsal) {
+        ctx.font = `bold ${Math.max(11, Math.round(r * 1.5))}px system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const ny = p.y - r * 2.1;
+        ctx.lineWidth = Math.max(2.5, r * 0.38);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.strokeText(dorsal, p.x, ny);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(dorsal, p.x, ny);
+        ctx.textAlign = 'start';
+      }
     }
   }
 
@@ -463,6 +492,7 @@ export function createRaceScreen(
       li.className = 'standing-row' + (car.isPlayerControlled ? ' player' : '');
       li.innerHTML = `
         <span class="pos"></span>
+        <span class="num"></span>
         <span class="tcolor"></span>
         <span class="dname"></span>
         <span class="gap"></span>
@@ -471,6 +501,8 @@ export function createRaceScreen(
         <span class="pitflag">BOX</span>`;
       const team = teamById(car.teamId);
       (li.querySelector<HTMLElement>('.tcolor')!).style.background = team.color;
+      (li.querySelector<HTMLElement>('.num')!).textContent =
+        String(driverById(car.driverId).number ?? '');
       (li.querySelector<HTMLElement>('.dname')!).textContent =
         driverById(car.driverId).name + (car.isPlayerControlled ? ' (tú)' : '');
       rows.set(car.driverId, {

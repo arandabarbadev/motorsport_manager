@@ -191,7 +191,7 @@
 
 .standing-row {
   display: grid;
-  grid-template-columns: 1.8em 0.9em 1fr 4.2em 1.4em 3.4em 3em;
+  grid-template-columns: 1.8em 1.5em 0.9em 1fr 4.2em 1.4em 3.4em 3em;
   gap: 6px;
   align-items: center;
   padding: 5px 6px;
@@ -206,6 +206,13 @@
 
 .standing-row .pos {
   color: var(--dim);
+}
+
+/* Race number (spec 008): bold so the car is identifiable without
+   team colors. */
+.standing-row .num {
+  font-weight: 700;
+  text-align: right;
 }
 
 .tcolor {
