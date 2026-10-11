@@ -12,6 +12,7 @@ import { REAL_LAYOUTS } from './real-layouts';
 // ============================================================
 
 interface TrackProfile {
+  slug: string; // stable id suffix: gp-<slug> (survives reordering)
   name: string;
   laps: number; // real-ish race distance
   km: number; // real-ish lap length (display/tuning reference)
@@ -20,29 +21,35 @@ interface TrackProfile {
   pit: number; // pitLaneTimeLoss (seconds)
 }
 
-// The 20 GPs of our season, in calendar order, with approximate
-// real-world values (starting numbers, tuned by playtesting).
+// The 24 GPs of the season in REAL calendar order (spec 010):
+// Melbourne opener, European summer, Yas Marina finale. Five famous
+// classics added (Nürburgring, Le Mans, Estoril, Jerez, Kyalami),
+// Barcelona removed.
 export const TRACK_PROFILES: readonly TrackProfile[] = [
-  { name: 'Melbourne', laps: 58, km: 5.3, corneriness: 0.45, deg: 0.95, pit: 21 },
-  { name: 'Yeda', laps: 50, km: 6.2, corneriness: 0.7, deg: 0.9, pit: 24 },
-  { name: 'Bakú', laps: 51, km: 6.0, corneriness: 0.6, deg: 0.9, pit: 25 },
-  { name: 'Madrid', laps: 55, km: 5.5, corneriness: 0.65, deg: 1.0, pit: 22 },
-  { name: 'Mónaco', laps: 78, km: 3.3, corneriness: 0.95, deg: 0.7, pit: 19 },
-  { name: 'Barcelona', laps: 66, km: 4.7, corneriness: 0.4, deg: 1.3, pit: 21 },
-  { name: 'Imola', laps: 63, km: 4.9, corneriness: 0.55, deg: 1.0, pit: 22 },
-  { name: 'Montreal', laps: 70, km: 4.4, corneriness: 0.5, deg: 0.8, pit: 20 },
-  { name: 'Silverstone', laps: 52, km: 5.9, corneriness: 0.3, deg: 1.2, pit: 22 },
-  { name: 'Spa', laps: 44, km: 7.0, corneriness: 0.25, deg: 1.1, pit: 24 },
-  { name: 'Hungría', laps: 70, km: 4.4, corneriness: 0.8, deg: 0.75, pit: 20 },
-  { name: 'Zandvoort', laps: 72, km: 4.3, corneriness: 0.75, deg: 1.05, pit: 20 },
-  { name: 'Monza', laps: 53, km: 5.8, corneriness: 0.15, deg: 1.15, pit: 23 },
-  { name: 'Singapur', laps: 62, km: 5.0, corneriness: 0.9, deg: 0.85, pit: 23 },
-  { name: 'Interlagos', laps: 71, km: 4.3, corneriness: 0.6, deg: 0.9, pit: 21 },
-  { name: 'México', laps: 71, km: 4.3, corneriness: 0.5, deg: 0.85, pit: 21 },
-  { name: 'Austin', laps: 56, km: 5.5, corneriness: 0.45, deg: 1.1, pit: 22 },
-  { name: 'Las Vegas', laps: 50, km: 6.2, corneriness: 0.55, deg: 1.05, pit: 24 },
-  { name: 'Suzuka', laps: 53, km: 5.8, corneriness: 0.5, deg: 1.1, pit: 23 },
-  { name: 'Yas Marina', laps: 58, km: 5.3, corneriness: 0.5, deg: 0.9, pit: 22 },
+  { slug: 'melbourne', name: 'Melbourne', laps: 58, km: 5.3, corneriness: 0.45, deg: 0.95, pit: 21 },
+  { slug: 'kyalami', name: 'Kyalami', laps: 68, km: 4.5, corneriness: 0.55, deg: 0.9, pit: 21 },
+  { slug: 'yeda', name: 'Yeda', laps: 50, km: 6.2, corneriness: 0.7, deg: 0.9, pit: 24 },
+  { slug: 'suzuka', name: 'Suzuka', laps: 53, km: 5.8, corneriness: 0.5, deg: 1.1, pit: 23 },
+  { slug: 'baku', name: 'Bakú', laps: 51, km: 6.0, corneriness: 0.6, deg: 0.9, pit: 25 },
+  { slug: 'madrid', name: 'Madrid', laps: 55, km: 5.5, corneriness: 0.65, deg: 1.0, pit: 22 },
+  { slug: 'imola', name: 'Imola', laps: 63, km: 4.9, corneriness: 0.55, deg: 1.0, pit: 22 },
+  { slug: 'monaco', name: 'Mónaco', laps: 78, km: 3.3, corneriness: 0.95, deg: 0.7, pit: 19 },
+  { slug: 'montreal', name: 'Montreal', laps: 70, km: 4.4, corneriness: 0.5, deg: 0.8, pit: 20 },
+  { slug: 'silverstone', name: 'Silverstone', laps: 52, km: 5.9, corneriness: 0.3, deg: 1.2, pit: 22 },
+  { slug: 'lemans', name: 'Le Mans', laps: 80, km: 4.2, corneriness: 0.5, deg: 0.85, pit: 21 },
+  { slug: 'nurburgring', name: 'Nürburgring', laps: 24, km: 20.8, corneriness: 0.85, deg: 1.35, pit: 24 },
+  { slug: 'spa', name: 'Spa', laps: 44, km: 7.0, corneriness: 0.25, deg: 1.1, pit: 24 },
+  { slug: 'hungria', name: 'Hungría', laps: 70, km: 4.4, corneriness: 0.8, deg: 0.75, pit: 20 },
+  { slug: 'zandvoort', name: 'Zandvoort', laps: 72, km: 4.3, corneriness: 0.75, deg: 1.05, pit: 20 },
+  { slug: 'monza', name: 'Monza', laps: 53, km: 5.8, corneriness: 0.15, deg: 1.15, pit: 23 },
+  { slug: 'estoril', name: 'Estoril', laps: 70, km: 4.2, corneriness: 0.7, deg: 1.0, pit: 20 },
+  { slug: 'singapur', name: 'Singapur', laps: 62, km: 5.0, corneriness: 0.9, deg: 0.85, pit: 23 },
+  { slug: 'jerez', name: 'Jerez', laps: 69, km: 4.4, corneriness: 0.75, deg: 1.2, pit: 21 },
+  { slug: 'austin', name: 'Austin', laps: 56, km: 5.5, corneriness: 0.45, deg: 1.1, pit: 22 },
+  { slug: 'mexico', name: 'México', laps: 71, km: 4.3, corneriness: 0.5, deg: 0.85, pit: 21 },
+  { slug: 'interlagos', name: 'Interlagos', laps: 71, km: 4.3, corneriness: 0.6, deg: 0.9, pit: 21 },
+  { slug: 'lasvegas', name: 'Las Vegas', laps: 50, km: 6.2, corneriness: 0.55, deg: 1.05, pit: 24 },
+  { slug: 'yasmarina', name: 'Yas Marina', laps: 58, km: 5.3, corneriness: 0.5, deg: 0.9, pit: 22 },
 ];
 
 // The layouts are dense already (real traces), so a light smoothing
@@ -86,7 +93,9 @@ export function generateTrack(seed: number): Track {
   const round2 = (v: number): number => Math.round(v * 100) / 100;
 
   return {
-    id: `track-${seed}`,
+    // Stable id by name (spec 010): reordering the calendar no longer
+    // changes what a saved id points to.
+    id: `gp-${profile.slug}`,
     name: profile.name,
     totalLaps: profile.laps,
     path,

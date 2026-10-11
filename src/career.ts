@@ -41,6 +41,26 @@ export interface CareerState {
   sponsorIds: number[]; // signed sponsors (up to MAX_ACTIVE_SPONSORS)
 }
 
+// Spec 010 migration table: names of the OLD (pre-010) calendar in
+// index order, used to translate legacy 'track-N' ids into the new
+// stable by-name ids. Barcelona was removed from the game, so its
+// results are dropped from the season history (prize money and
+// championship points already earned are untouched).
+const LEGACY_TRACK_ORDER: readonly string[] = [
+  'Melbourne', 'Yeda', 'Bakú', 'Madrid', 'Mónaco', 'Barcelona', 'Imola',
+  'Montreal', 'Silverstone', 'Spa', 'Hungría', 'Zandvoort', 'Monza',
+  'Singapur', 'Interlagos', 'México', 'Austin', 'Las Vegas', 'Suzuka',
+  'Yas Marina',
+];
+
+function migrateTrackId(id: string): string | null {
+  if (!id.startsWith('track-')) return id; // already the new by-name format
+  const idx = Number(id.slice('track-'.length));
+  const name = LEGACY_TRACK_ORDER[idx];
+  if (!name) return null;
+  return ALL_TRACKS.find((t) => t.name === name)?.id ?? null;
+}
+
 export function createDefaultCareer(budget: number = INITIAL_BUDGET): CareerState {
   return {
     version: 1,
@@ -74,17 +94,33 @@ export function loadCareer(): CareerState | null {
     const parsed = JSON.parse(raw) as Partial<CareerState>;
     if (parsed.version !== 1 || typeof parsed.budget !== 'number') return null;
     // Merge with defaults so older saves migrate forward without
-    // losing progress.
+    // losing progress. Spec 010: the calendar is rebuilt with the new
+    // by-name ids in real order, results are re-mapped (dropping
+    // circuits that no longer exist) and re-ordered by the new
+    // calendar, and the current round index is kept (clamped).
+    const newCalendar = ALL_TRACKS.map((t) => t.id);
+    const migratedResults: SeasonResult[] = (
+      Array.isArray(parsed.seasonResults) ? parsed.seasonResults : []
+    )
+      .map((r) =>
+        r && typeof r.trackId === 'string'
+          ? { ...r, trackId: migrateTrackId(r.trackId) }
+          : null
+      )
+      .filter((r): r is SeasonResult => r !== null && r.trackId !== null)
+      .sort(
+        (a, b) => newCalendar.indexOf(a.trackId) - newCalendar.indexOf(b.trackId)
+      );
     const merged: CareerState = {
       version: 1,
       budget: parsed.budget,
-      calendar: Array.isArray(parsed.calendar)
-        ? parsed.calendar
-        : ALL_TRACKS.map((t) => t.id),
-      currentRaceIndex:
-        typeof parsed.currentRaceIndex === 'number' ? parsed.currentRaceIndex : 0,
+      calendar: newCalendar,
+      currentRaceIndex: Math.min(
+        Math.max(typeof parsed.currentRaceIndex === 'number' ? parsed.currentRaceIndex : 0, 0),
+        newCalendar.length - 1
+      ),
       seasonNumber: typeof parsed.seasonNumber === 'number' ? parsed.seasonNumber : 1,
-      seasonResults: Array.isArray(parsed.seasonResults) ? parsed.seasonResults : [],
+      seasonResults: migratedResults,
       staff: {
         mechanics: parsed.staff?.mechanics ?? 1,
         engineers: parsed.staff?.engineers ?? 1,
