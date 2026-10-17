@@ -403,8 +403,8 @@ export function createRaceScreen(
     }
   }
 
-  // Spec 012: screen point of a car, offset laterally from the
-  // centerline by its lateral (up to ±34% of the half road width).
+  // Spec 012/014: screen point of a car, offset laterally from the
+  // centerline by its lateral (up to ±42% of the road width).
   function carScreenPoint(car: RaceCarState, alpha: number): Point {
     const sh = shadow.get(car.driverId) ?? { lap: car.currentLap, progress: car.lapProgress };
     const prevTotal = sh.lap + sh.progress;
@@ -412,7 +412,7 @@ export function createRaceScreen(
     const total = prevTotal + (currTotal - prevTotal) * alpha;
     const base = toPx(sampler.pointAt(total));
     const tan = tangentAt(total);
-    const off = (lateralByCar.get(car.driverId) ?? 0) * roadWidthPx * 0.34;
+    const off = (lateralByCar.get(car.driverId) ?? 0) * roadWidthPx * 0.42;
     return { x: base.x + -tan.y * off, y: base.y + tan.x * off };
   }
 
@@ -474,8 +474,10 @@ export function createRaceScreen(
     const w = trackLayer.width;
     const h = trackLayer.height;
     layerCtx.clearRect(0, 0, w, h);
-    const roadWidth = Math.max(12, 0.062 * Math.min(w, h)); // wide enough to see overtakes
-    roadWidthPx = roadWidth; // spec 012: lateral offsets are a fraction of it
+    // Spec 014: wider road (7.5% of the canvas' short side) so the
+    // lateral roam of the cars fits inside the asphalt.
+    const roadWidth = Math.max(12, 0.075 * Math.min(w, h));
+    roadWidthPx = roadWidth; // lateral offsets are a fraction of it
     // Track colors follow the active theme (light/dark).
     const cssVar = (name: string): string =>
       getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -498,7 +500,8 @@ export function createRaceScreen(
 
     strokeLoop(roadWidth + Math.max(2, roadWidth * 0.12), cssVar('--track-border'));
     strokeLoop(roadWidth, cssVar('--track-asphalt'));
-    strokeLoop(1.5, cssVar('--track-line'));
+    // Spec 014: no center guide line anymore — the cars roam the
+    // full width, a painted centerline read as a slot-car rail.
 
     // Start/finish line across the track at t = 0.
     const a = toPx(sampler.pointAt(0.998));
@@ -587,7 +590,9 @@ export function createRaceScreen(
 
   let lastHudAt = 0;
 
-  const carRadius = (): number => Math.max(4, 0.016 * Math.min(canvas.width, canvas.height));
+  // Spec 014: slightly slimmer cars (1.3% of the canvas' short side)
+  // so the widened road reads wide and the roam stays on the asphalt.
+  const carRadius = (): number => Math.max(4, 0.013 * Math.min(canvas.width, canvas.height));
 
   // Event feedback layer: highlight rings + rising floating texts.
   function drawEffects(now: number, alpha: number): void {

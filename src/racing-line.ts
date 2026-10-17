@@ -22,14 +22,14 @@ export const LATERAL_MAX = 1;
 // and line up in two columns from the start.
 export const BATTLE_WINDOW = 0.0035;
 // How strongly a battle pushes the cars apart.
-const BATTLE_BIAS = 0.75;
+const BATTLE_BIAS = 0.9;
 // Personal drift amplitude and rhythm (no Math.random: the phase
 // comes from a hash of the driver id, deterministic per race).
-const DRIFT_AMPLITUDE = 0.18;
-const DRIFT_RAD_PER_SEC = 0.25;
+const DRIFT_AMPLITUDE = 0.32;
+const DRIFT_RAD_PER_SEC = 0.3;
 // Corner weight: how much of the normalized curvature becomes
 // lateral bias (the renderer normalizes curvature to -1..1).
-const CORNER_WEIGHT = 0.55;
+const CORNER_WEIGHT = 0.8;
 // Yellow flag: everything except battles, scaled down (single file).
 const YELLOW_SCALE = 0.4;
 // Exponential smoothing time constant: a lane change takes ~1s.
