@@ -230,7 +230,7 @@ export function simulationTick(state: RaceState): void {
   }
 
   // Random incidents only under green flag conditions.
-  if (state.flag === 'green') runIncidents(state, seconds);
+  if (state.flag === 'green') runIncidents(state, seconds, events);
 
   maybeWeatherChange(state, seconds);
   runPitStopAI(state);
@@ -293,7 +293,7 @@ function raiseFlag(state: RaceState, flag: 'yellow' | 'red', duration: number): 
   }
 }
 
-function runIncidents(state: RaceState, seconds: number): void {
+function runIncidents(state: RaceState, seconds: number, events: RaceEvent[]): void {
   const weatherFactor =
     state.weather === 'dry' ? 1 : state.weather === 'lightRain' ? 1.7 : 2.6;
   for (const car of state.cars) {
@@ -307,8 +307,11 @@ function runIncidents(state: RaceState, seconds: number): void {
     const roll = Math.random();
     if (roll < pMinor) {
       raiseFlag(state, 'yellow', YELLOW_DURATION_SEC);
+      // Spec 012: the spin becomes a visible event (render feedback).
+      events.push({ type: 'incident', carDriverId: car.driverId, incidentKind: 'spin' });
     } else if (roll < pMinor + pMajor) {
       car.status = 'dnf'; // crash out
+      events.push({ type: 'incident', carDriverId: car.driverId, incidentKind: 'crash' });
       if (Math.random() < RED_FLAG_CHANCE) {
         raiseFlag(state, 'red', RED_DURATION_SEC);
       } else {
@@ -316,6 +319,7 @@ function runIncidents(state: RaceState, seconds: number): void {
       }
     } else if (roll < pMinor + pMajor + pMech) {
       car.status = 'dnf'; // mechanical failure, no flag
+      events.push({ type: 'incident', carDriverId: car.driverId, incidentKind: 'mechanical' });
     }
   }
 }

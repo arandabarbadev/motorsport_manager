@@ -11,9 +11,9 @@ import { eventLaps, eventRainChance } from './weekend';
 //   - mechanics    -> shorter pit stops for the player's cars
 // ============================================================
 
-// Rain lottery (player request: rain only in SOME races): 40% of the
+// Rain lottery (player request, spec 012: less rain): 25% of the
 // races are built with weather that can change; the rest stay dry.
-const RAIN_RACE_CHANCE = 0.4;
+const RAIN_RACE_CHANCE = 0.25;
 
 // Expected pace factor used to line up the grid (fastest first),
 // same weighting as the simulation's basePaceFactor.

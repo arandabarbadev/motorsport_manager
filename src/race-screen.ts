@@ -17,6 +17,7 @@ import { computeRaceFinance } from './finance';
 import { scheduleCloudSync } from './cloud';
 import { showGuideOnce } from './guide';
 import { buildTrackSampler, Point, TrackSampler } from './track-path';
+import { lateralTarget, stepLateral } from './racing-line';
 
 // ============================================================
 // RACE SCREEN (Phase 2)
@@ -100,6 +101,12 @@ export function createRaceScreen(
     <div class="race-body">
       <div class="track-wrap">
         <canvas class="track-canvas"></canvas>
+        <div class="start-lights hidden">
+          <div class="lights-row">
+            <span class="light"></span><span class="light"></span><span class="light"></span><span class="light"></span><span class="light"></span>
+          </div>
+          <div class="lights-label">Formación</div>
+        </div>
         <div class="flag-indicator hidden"></div>
         <div class="results-overlay hidden">
           <div class="results-panel">
@@ -119,6 +126,8 @@ export function createRaceScreen(
         <div class="pit-panel"></div>
         <h2 class="hud-title">Clasificación</h2>
         <ol class="standings"></ol>
+        <h2 class="hud-title">Dirección de carrera</h2>
+        <ul class="feed-list"></ul>
       </aside>
     </div>
   `;
@@ -143,6 +152,11 @@ export function createRaceScreen(
   const restartBtn = root.querySelector<HTMLButtonElement>('.restart-btn')!;
   const pitPanel = root.querySelector<HTMLElement>('.pit-panel')!;
   const standingsEl = root.querySelector<HTMLOListElement>('.standings')!;
+  // Spec 012: start-light gantry and the race-control feed.
+  const lightsEl = root.querySelector<HTMLElement>('.start-lights')!;
+  const lightEls = [...root.querySelectorAll<HTMLElement>('.start-lights .light')];
+  const lightsLabelEl = root.querySelector<HTMLElement>('.lights-label')!;
+  const feedListEl = root.querySelector<HTMLUListElement>('.feed-list')!;
   const exitBtn = root.querySelector<HTMLButtonElement>('.exit-btn')!;
   if (onExit) exitBtn.addEventListener('click', onExit);
   else exitBtn.remove();
@@ -184,12 +198,60 @@ export function createRaceScreen(
   // Race event feedback (Phase 7): brief highlights + floating texts,
   // driven ONLY by the engine's per-tick raceEvents list.
   const highlightUntil = new Map<string, number>();
+  // Spec 012: incident flashes last longer and draw in red.
+  const incidentUntil = new Map<string, number>();
   interface FloatingText {
     text: string;
     driverId: string;
     bornAt: number;
+    color?: string;
   }
   let floatingTexts: FloatingText[] = [];
+
+  // Spec 012: lateral position across the road (render-only state,
+  // see racing-line.ts). gridPos is captured per race so the start
+  // alternates sides stably; DNF ghosts freeze their last lateral.
+  const lateralByCar = new Map<string, number>();
+  const gridByCar = new Map<string, number>();
+  let lastLateralStepAt = 0;
+
+  // Spec 012: start-light phase. While active the simulation does
+  // not tick and the clock does not advance (the formation is not
+  // race time).
+  interface LightsPhase {
+    active: boolean;
+    lit: number;
+    nextAt: number;
+    outAt: number;
+    hideTimer: number;
+  }
+  let lights: LightsPhase = { active: false, lit: 0, nextAt: 0, outAt: 0, hideTimer: 0 };
+
+  // Spec 012: race-control feed — last events, newest first, capped.
+  function addFeed(text: string, kind: 'incident' | 'overtake' | 'pit'): void {
+    const li = document.createElement('li');
+    li.className = 'feed-item ' + kind;
+    li.textContent = text;
+    feedListEl.prepend(li);
+    while (feedListEl.children.length > 8) feedListEl.lastChild!.remove();
+  }
+
+  const lapLabel = (): string =>
+    `V${Math.min(
+      Math.max(...state.cars.map((c) => c.currentLap)) + 1,
+      state.track.totalLaps
+    )}`;
+
+  const INCIDENT_TEXT: Record<string, string> = {
+    spin: '¡Trompo!',
+    crash: '¡Accidente!',
+    mechanical: '¡Avería!',
+  };
+  const INCIDENT_COLOR: Record<string, string> = {
+    spin: '#ffb020',
+    crash: '#ff5a3c',
+    mechanical: '#aab4c0',
+  };
 
   function consumeRaceEvents(events: RaceEvent[]): void {
     const now = performance.now();
@@ -203,6 +265,10 @@ export function createRaceScreen(
             driverId: ev.carDriverId,
             bornAt: now,
           });
+          addFeed(
+            `${driverById(ev.carDriverId).name} adelanta → P${ev.newPosition}`,
+            'overtake'
+          );
         }
       } else if (ev.type === 'pitEntry') {
         highlightUntil.set(ev.carDriverId, now + 900);
@@ -210,6 +276,22 @@ export function createRaceScreen(
         if (car?.isPlayerControlled) {
           floatingTexts.push({ text: '¡A boxes!', driverId: ev.carDriverId, bornAt: now });
         }
+        addFeed(`${driverById(ev.carDriverId).name} entra a boxes`, 'pit');
+      } else if (ev.type === 'incident' && ev.incidentKind) {
+        // Spec 012: visible for EVERY car, not just the player's.
+        const car = state.cars.find((c) => c.driverId === ev.carDriverId);
+        incidentUntil.set(ev.carDriverId, now + 1400);
+        const label = INCIDENT_TEXT[ev.incidentKind];
+        floatingTexts.push({
+          text: `${label} P${car?.position ?? '?'}`,
+          driverId: ev.carDriverId,
+          bornAt: now,
+          color: INCIDENT_COLOR[ev.incidentKind],
+        });
+        addFeed(
+          `${lapLabel()} · ${label} ${driverById(ev.carDriverId).name} (P${car?.position ?? '?'})`,
+          'incident'
+        );
       }
     }
     if (floatingTexts.length > 6) floatingTexts = floatingTexts.slice(-6);
@@ -243,6 +325,15 @@ export function createRaceScreen(
     overlaySeasonBtn.classList.add('hidden');
     overlayContinueBtn.classList.add('hidden');
     prizeAwarded = false;
+    // Spec 012: fresh lateral state and grid sides for this race.
+    lateralByCar.clear();
+    gridByCar.clear();
+    state.cars.forEach((car, i) => {
+      lateralByCar.set(car.driverId, 0);
+      gridByCar.set(car.driverId, i + 1); // cars array is grid order
+    });
+    lastLateralStepAt = 0;
+    startLights();
     buildStandings();
     buildPitPanel();
     updateControls();
@@ -265,6 +356,95 @@ export function createRaceScreen(
   // ---- Track drawing (offscreen layer) ----
 
   let view = { ox: 0, oy: 0, s: 1 };
+  // Road width in px, set while drawing the layer: the lateral
+  // offset is a fraction of it.
+  let roadWidthPx = 40;
+
+  // Spec 012: unit tangent of the track at lap fraction t.
+  function tangentAt(t: number): Point {
+    const a = sampler.pointAt(t - 0.002);
+    const b = sampler.pointAt(t + 0.002);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: dx / len, y: dy / len };
+  }
+
+  // Spec 012: normalized signed curvature ahead of t, in [-1, 1].
+  // Positive = the inside of the corner is on the positive-normal
+  // side (cross of the two tangents > 0, sin ~20° counts as "full").
+  function curvatureAt(t: number): number {
+    const t1 = tangentAt(t);
+    const t2 = tangentAt(t + 0.01);
+    const cross = t1.x * t2.y - t1.y * t2.x;
+    return Math.max(-1, Math.min(1, cross / 0.35));
+  }
+
+  // Spec 012: eased lateral targets, stepped once per frame.
+  function updateLaterals(now: number): void {
+    const dt = lastLateralStepAt > 0 ? Math.min(0.1, (now - lastLateralStepAt) / 1000) : 0;
+    lastLateralStepAt = now;
+    const input = {
+      cars: state.cars.map((car) => ({
+        driverId: car.driverId,
+        gridPos: gridByCar.get(car.driverId) ?? 1,
+        totalProgress: car.currentLap + car.lapProgress,
+        lateral: lateralByCar.get(car.driverId) ?? 0,
+      })),
+      curvatureAt,
+      clockSec,
+      yellow: state.flag === 'yellow',
+    };
+    for (const entry of input.cars) {
+      const car = state.cars.find((c) => c.driverId === entry.driverId)!;
+      if (car.status === 'dnf') continue; // ghost: frozen where it died
+      const target = lateralTarget(entry, input);
+      lateralByCar.set(entry.driverId, stepLateral(entry.lateral, target, dt));
+    }
+  }
+
+  // Spec 012: screen point of a car, offset laterally from the
+  // centerline by its lateral (up to ±34% of the half road width).
+  function carScreenPoint(car: RaceCarState, alpha: number): Point {
+    const sh = shadow.get(car.driverId) ?? { lap: car.currentLap, progress: car.lapProgress };
+    const prevTotal = sh.lap + sh.progress;
+    const currTotal = car.currentLap + car.lapProgress;
+    const total = prevTotal + (currTotal - prevTotal) * alpha;
+    const base = toPx(sampler.pointAt(total));
+    const tan = tangentAt(total);
+    const off = (lateralByCar.get(car.driverId) ?? 0) * roadWidthPx * 0.34;
+    return { x: base.x + -tan.y * off, y: base.y + tan.x * off };
+  }
+
+  // Spec 012: F1 start lights — 5 red lights, one by one, then all
+  // out after a random hold. While the phase is active the sim
+  // interval does not tick (formation, not race time).
+  function startLights(): void {
+    if (lights.hideTimer) window.clearTimeout(lights.hideTimer);
+    lights = { active: true, lit: 0, nextAt: performance.now() + 600, outAt: 0, hideTimer: 0 };
+    lightsEl.classList.remove('hidden', 'out');
+    lightsLabelEl.textContent = 'Formación';
+    lightEls.forEach((el) => el.classList.remove('on'));
+  }
+
+  function advanceLights(now: number): void {
+    if (!lights.active) return;
+    if (lights.lit < lightEls.length) {
+      if (now >= lights.nextAt) {
+        lightEls[lights.lit].classList.add('on');
+        lights.lit++;
+        lights.nextAt = now + 650;
+        if (lights.lit === lightEls.length) {
+          lights.outAt = now + 650 + 400 + Math.random() * 800;
+        }
+      }
+    } else if (lights.outAt > 0 && now >= lights.outAt) {
+      lights.active = false;
+      lightsEl.classList.add('out');
+      lightsLabelEl.textContent = '¡Luces fuera!';
+      lights.hideTimer = window.setTimeout(() => lightsEl.classList.add('hidden'), 900);
+    }
+  }
 
   const toPx = (p: Point): Point => ({ x: p.x * view.s + view.ox, y: p.y * view.s + view.oy });
 
@@ -295,6 +475,7 @@ export function createRaceScreen(
     const h = trackLayer.height;
     layerCtx.clearRect(0, 0, w, h);
     const roadWidth = Math.max(12, 0.062 * Math.min(w, h)); // wide enough to see overtakes
+    roadWidthPx = roadWidth; // spec 012: lateral offsets are a fraction of it
     // Track colors follow the active theme (light/dark).
     const cssVar = (name: string): string =>
       getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -350,6 +531,13 @@ export function createRaceScreen(
   // ---- Simulation loop (own interval, decoupled from rendering) ----
 
   window.setInterval(() => {
+    // Spec 012: while the start lights are on there is no race yet —
+    // anchor the render like the pause does (clock stays at 0).
+    if (lights.active) {
+      snapshotShadow();
+      lastTickAt = performance.now();
+      return;
+    }
     if (state.isPaused || finished) {
       snapshotShadow(); // keep the render lerp anchored while paused
       lastTickAt = performance.now();
@@ -384,8 +572,11 @@ export function createRaceScreen(
     }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(trackLayer, 0, 0);
-    drawCars(now);
-    drawEffects(now);
+    advanceLights(now);
+    updateLaterals(now);
+    const alpha = Math.min(1, (now - lastTickAt) / TICK_MS);
+    drawCars(alpha);
+    drawEffects(now, alpha);
     if (now - lastHudAt >= HUD_INTERVAL_MS) {
       updateHud();
       updateHeader();
@@ -399,19 +590,32 @@ export function createRaceScreen(
   const carRadius = (): number => Math.max(4, 0.016 * Math.min(canvas.width, canvas.height));
 
   // Event feedback layer: highlight rings + rising floating texts.
-  function drawEffects(now: number): void {
+  function drawEffects(now: number, alpha: number): void {
     const r = carRadius();
     for (const car of state.cars) {
       const until = highlightUntil.get(car.driverId) ?? 0;
-      if (now >= until) continue;
-      const total = car.currentLap + car.lapProgress;
-      const p = toPx(sampler.pointAt(total));
-      const life = (until - now) / 900; // 1 -> 0
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r + 5 + (1 - life) * 3, 0, Math.PI * 2);
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 * life})`;
-      ctx.stroke();
+      if (now < until) {
+        const p = carScreenPoint(car, alpha);
+        const life = (until - now) / 900; // 1 -> 0
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r + 5 + (1 - life) * 3, 0, Math.PI * 2);
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 * life})`;
+        ctx.stroke();
+      }
+      // Spec 012: incident flash — bigger red ring, 1400 ms.
+      const incident = incidentUntil.get(car.driverId) ?? 0;
+      if (now < incident) {
+        const p = carScreenPoint(car, alpha);
+        const life = (incident - now) / 1400; // 1 -> 0
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r + 6 + (1 - life) * 10, 0, Math.PI * 2);
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = `rgba(255, 90, 60, ${0.9 * life})`;
+        ctx.stroke();
+      } else if (incident > 0) {
+        incidentUntil.delete(car.driverId);
+      }
     }
     floatingTexts = floatingTexts.filter((f) => now - f.bornAt < 1200);
     ctx.font = 'bold 13px system-ui, sans-serif';
@@ -419,35 +623,27 @@ export function createRaceScreen(
     for (const f of floatingTexts) {
       const car = state.cars.find((c) => c.driverId === f.driverId);
       if (!car) continue;
-      const total = car.currentLap + car.lapProgress;
-      const p = toPx(sampler.pointAt(total));
+      const p = carScreenPoint(car, alpha);
       const progress = (now - f.bornAt) / 1200;
       const y = p.y - r - 8 - progress * 26;
       ctx.globalAlpha = 1 - progress;
       ctx.lineWidth = 3;
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
       ctx.strokeText(f.text, p.x, y);
-      ctx.fillStyle = '#ffd700';
+      ctx.fillStyle = f.color ?? '#ffd700';
       ctx.fillText(f.text, p.x, y);
       ctx.globalAlpha = 1;
     }
     ctx.textAlign = 'start';
   }
 
-  function drawCars(now: number): void {
-    // Interpolate positions between the last two ticks for smooth motion
-    // (prevLapProgress -> lapProgress, alpha = timeSinceLastTick / tickMs).
-    const alpha = Math.min(1, (now - lastTickAt) / TICK_MS);
+  function drawCars(alpha: number): void {
+    // Positions interpolate between the last two ticks (alpha) and
+    // carry the lateral offset from racing-line (spec 012).
     const r = carRadius();
     const sorted = [...state.cars].sort((a, b) => b.position - a.position);
     for (const car of sorted) {
-      const sh = shadow.get(car.driverId) ?? {
-        lap: car.currentLap,
-        progress: car.lapProgress,
-      };
-      const prevTotal = sh.lap + sh.progress;
-      const currTotal = car.currentLap + car.lapProgress;
-      const p = toPx(sampler.pointAt(prevTotal + (currTotal - prevTotal) * alpha));
+      const p = carScreenPoint(car, alpha);
       const cssVar = (name: string): string =>
         getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
@@ -669,6 +865,7 @@ export function createRaceScreen(
   }
 
   pauseBtn.addEventListener('click', () => {
+    if (lights.active) return; // nothing to pause before lights out
     state.isPaused = !state.isPaused;
     updateControls();
   });

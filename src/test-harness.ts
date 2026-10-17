@@ -1,6 +1,7 @@
 import { RaceState } from './types';
 import { simulationTick } from './simulation';
 import { buildTestRaceState } from './test-grid';
+import { LATERAL_MAX, lateralTarget, stepLateral } from './racing-line';
 
 // ============================================================
 // TEST HARNESS (Phase 1): runs the simulation head-less (no UI)
@@ -34,6 +35,55 @@ function spearman(xs: number[], ys: number[]): number {
     dy += (ry[i] - my) ** 2;
   }
   return num / Math.sqrt(dx * dy);
+}
+
+// Acceptance check 3 (spec 012): the lateral (render-only) racing
+// line holds its invariants with deterministic inputs.
+function racingLineSelfCheck(lines: string[]): void {
+  let failures = 0;
+  const expect = (ok: boolean, what: string): void => {
+    if (!ok) {
+      failures++;
+      lines.push('FAIL lateral: ' + what);
+    }
+  };
+
+  // 1) Bounded: targets always within [-1, 1] whatever the inputs.
+  for (let t = 0; t < 40; t++) {
+    const target = lateralTarget(
+      { driverId: 'd' + t, gridPos: (t % 20) + 1, totalProgress: t * 1.7, lateral: -1 },
+      {
+        cars: [],
+        curvatureAt: () => Math.sin(t * 3.1),
+        clockSec: t * 11,
+        yellow: t % 3 === 0,
+      }
+    );
+    expect(Math.abs(target) <= LATERAL_MAX, 'acotado (t=' + t + ' -> ' + target + ')');
+  }
+
+  // 2) Battles open to opposite sides; yellow drops the battle.
+  const duel = (yellow: boolean): [number, number] => {
+    const a = { driverId: 'alpha', gridPos: 1, totalProgress: 10.0, lateral: 0 };
+    const b = { driverId: 'bravo', gridPos: 2, totalProgress: 10.001, lateral: 0 };
+    const input = { cars: [a, b], curvatureAt: () => 0, clockSec: 5, yellow };
+    return [lateralTarget(a, input), lateralTarget(b, input)];
+  };
+  const [ta, tb] = duel(false);
+  expect(ta > 0 && tb < 0, 'batalla a lados opuestos (' + ta.toFixed(2) + ' / ' + tb.toFixed(2) + ')');
+  const [ya, yb] = duel(true);
+  expect(Math.abs(ya - yb) < 0.6, 'amarilla sin batalla (' + ya.toFixed(2) + ' / ' + yb.toFixed(2) + ')');
+
+  // 3) Smoothing converges to the target without overshooting.
+  let current = 0;
+  for (let i = 0; i < 10; i++) current = stepLateral(current, 0.9, 0.2);
+  expect(current > 0.8 && current <= 0.9, 'convergencia (0 -> ' + current.toFixed(3) + ')');
+
+  lines.push(
+    failures === 0
+      ? 'Lateral check: acotado OK | batallas OK | amarilla OK | convergencia OK'
+      : 'Lateral check: ' + failures + ' FALLOS'
+  );
 }
 
 const pad = (s: string, n: number): string => (s.length >= n ? s : s + ' '.repeat(n - s.length));
@@ -138,6 +188,9 @@ export function runTestHarness(): string {
   } else {
     lines.push('WARNING: no pit stops happened.');
   }
+
+  // Acceptance check 3 (spec 012): lateral racing-line invariants.
+  racingLineSelfCheck(lines);
 
   return lines.join('\n');
 }

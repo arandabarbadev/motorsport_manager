@@ -296,6 +296,112 @@
   font-weight: 700;
 }
 
+/* Start lights (spec 012): F1 gantry, 5 red lights */
+.start-lights {
+  position: absolute;
+  top: 14%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 88%, #000 12%);
+  border: 1px solid var(--border-2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.start-lights.hidden {
+  display: none;
+}
+
+.lights-row {
+  display: flex;
+  gap: 10px;
+}
+
+.start-lights .light {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--border);
+  border: 2px solid var(--border-2);
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+
+.start-lights .light.on {
+  background: #e02020;
+  border-color: #7d0f0f;
+  box-shadow: 0 0 12px 2px rgba(224, 32, 32, 0.65);
+}
+
+.start-lights.out .light.on {
+  background: var(--border);
+  border-color: var(--border-2);
+  box-shadow: none;
+}
+
+.lights-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.start-lights.out .lights-label {
+  color: var(--green-text);
+}
+
+/* Race control feed (spec 012): last events under the standings */
+.feed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.feed-item {
+  font-size: 12px;
+  padding: 3px 6px 3px 16px;
+  border-radius: 6px;
+  position: relative;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-item::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dim);
+}
+
+.feed-item.incident::before {
+  background: var(--red);
+}
+
+.feed-item.overtake::before {
+  background: var(--green);
+}
+
+.feed-item.pit::before {
+  background: var(--amber);
+}
+
+.feed-item.incident {
+  color: var(--red);
+  font-weight: 700;
+}
+
 /* Race control flag indicator (top-left over the track) */
 .flag-indicator {
   position: absolute;

@@ -116,8 +116,10 @@ export interface PitCommand {
 // render layer reads them for visual feedback and they are
 // replaced on the next tick.
 export interface RaceEvent {
-  type: 'overtake' | 'pitEntry';
+  type: 'overtake' | 'pitEntry' | 'incident';
   carDriverId: string;
   previousPosition?: number;
   newPosition?: number;
+  // Only on 'incident' (spec 012): what happened to the car.
+  incidentKind?: 'spin' | 'crash' | 'mechanical';
 }
