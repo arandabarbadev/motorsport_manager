@@ -39,9 +39,14 @@ Cuando se verifica que algo funciona, se enseña la evidencia: una captura de la
 Motivo: revisar lo que hace el agente es la mitad de mi trabajo, y sin evidencia solo me queda creerle.
 
 ### X. La carpeta del proyecto, abierta y a la vista
-Siempre que se empiece cualquier tarea en un proyecto, su carpeta tiene que estar abierta en VS Code (en ventana nueva si hay otra abierta) antes de tocar nada. Todo lo que el agente hace tiene que verse en el explorador de esa carpeta mientras trabaja: la spec y las tareas de la función activa (con sus casillas marcándose), y el código cambiando. Si la tarea genera archivos, viven en esa carpeta (regla VIII); si el agente trabaja en otra carpeta que no está abierta, la abre primero y me avisa.
+Siempre que se empiece cualquier tarea en un proyecto, su carpeta tiene que estar abierta en el Explorador de Windows (explorer.exe) antes de tocar nada, y el agente me avisa de que la ha abierto. Todo lo que el agente hace tiene que poder verse en esa carpeta mientras trabaja: la spec y las tareas de la función activa (con sus casillas marcándose), y el código cambiando. Si la tarea genera archivos, viven en esa carpeta (regla VIII); si el agente trabaja en otra carpeta que no está abierta, la abre primero en el Explorador y me avisa.
 
-Motivo: trabajar a ciegas en un proyecto que no tengo abierto me deja fuera; poder mirar el explorador y ver qué cambia es cómo reviso sobre la marcha.
+Motivo: trabajar a ciegas en un proyecto que no tengo abierto me deja fuera; poder mirar la carpeta en el Explorador y ver qué cambia es cómo reviso sobre la marcha.
+
+### XI. Higiene de tokens: recordar /compact
+Cada turno paga otra vez toda la conversación, así que las sesiones largas se encarecen solas. Cuando llegue un buen momento para compactar —al cerrar una función, tras una verificación con salidas largas, o antes de empezar otra función—, el agente se lo recuerda a Rafa para que ejecute /compact o abra una conversación nueva (el estado vive en las specs, los archivos y los commits, no en el chat). El recordatorio va dentro del mensaje de cierre de la tarea, sin interrumpir el trabajo.
+
+Motivo: las sesiones gigantes quemaban tokens sin que Rafa pudiera evitarlo; el aviso en el momento justo es lo que le da el control.
 
 ## Lecciones aprendidas
 <!-- Reglas técnicas obligatorias para el plan y la implementación. -->
@@ -57,4 +62,4 @@ Si la app tiene service worker, el HTML se pide a la red primero y la caché sol
 - Esta constitución tiene prioridad sobre cualquier plan o tarea. Si el plan la incumple, se dice en el Constitution Check y se justifica o se corrige.
 - Cada vez que un error me cueste tiempo, se añade aquí como lección nueva y se sube la versión.
 
-**Versión**: 1.3.0 | **Ratificada**: 2026-10-04 | **Última enmienda**: 2026-10-11
+**Versión**: 1.4.0 | **Ratificada**: 2026-10-04 | **Última enmienda**: 2026-10-17
