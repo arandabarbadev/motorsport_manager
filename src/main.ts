@@ -4,7 +4,8 @@ import { createTeamScreen } from './team-screen';
 import { createRaceScreen } from './race-screen';
 import { createSeasonScreen } from './season-screen';
 import { loadRoster } from './roster';
-import { buildRaceStateFromRoster } from './race-builder';
+import { buildRaceStateFromRoster, expectedPace } from './race-builder';
+import { gridForEvent, pendingEvent } from './weekend';
 import { getOrCreateCareer, isSeasonComplete } from './career';
 import { ALL_TRACKS, getTrackById } from './tracks-generator';
 import { firebaseConfigured, initCloud, watchAuth } from './cloud';
@@ -39,15 +40,24 @@ function showRaceScreen(): void {
   }
   const track =
     getTrackById(career.calendar[career.currentRaceIndex]) ?? ALL_TRACKS[0];
+  // Spec 011: run the round's pending act (quali -> S1 -> S2 -> race),
+  // with the grid chained from the previous act's recorded standings.
+  const event = pendingEvent(career) ?? 'race';
+  const grid = gridForEvent(career, event, expectedPace, {
+    drivers: roster.entries.flatMap((entry) => entry.drivers),
+    specs: roster.entries.flatMap((entry) => entry.cars),
+  });
   // The race uses a snapshot of roster + track taken when entering.
   const rosterSnapshot = roster;
   const careerSnapshot = career;
   swapScreen(app, () =>
     createRaceScreen(
       app,
-      () => buildRaceStateFromRoster(rosterSnapshot, track, careerSnapshot),
+      () => buildRaceStateFromRoster(rosterSnapshot, track, careerSnapshot, event, grid),
       showTeamScreen,
-      showSeasonScreen
+      showSeasonScreen,
+      event,
+      showRaceScreen // "Continuar a X" re-enters with the next pending act
     )
   );
 }

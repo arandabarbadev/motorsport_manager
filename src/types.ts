@@ -6,6 +6,9 @@
 
 export type TyreCompound = 'soft' | 'medium' | 'hard' | 'wet';
 export type CarStatus = 'racing' | 'inPit' | 'dnf';
+// Weekend event (spec 011): each calendar round is played as
+// quali -> sprint1 -> sprint2 -> race, each one seeding the next grid.
+export type WeekendEvent = 'quali' | 'sprint1' | 'sprint2' | 'race';
 export type Weather = 'dry' | 'lightRain' | 'heavyRain';
 // Race control flags: green (racing), yellow (slow, no fighting),
 // red (race suspended).

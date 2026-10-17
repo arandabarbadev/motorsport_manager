@@ -22,6 +22,7 @@ import {
   CareerState,
 } from './career';
 import { ALL_TRACKS, getTrackById } from './tracks-generator';
+import { eventLabel, pendingEvent } from './weekend';
 import { themeButtonLabel, toggleTheme } from './theme';
 import { ALL_SPONSORS, isSponsorUnlocked, MAX_ACTIVE_SPONSORS } from './sponsors';
 import { computeRaceFinance, sponsorIncome } from './finance';
@@ -183,7 +184,9 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
     } else {
       const track =
         getTrackById(career.calendar[career.currentRaceIndex]) ?? ALL_TRACKS[0];
-      goRaceBtn.textContent = `Carrera · R${Math.min(
+      // Spec 011: the button names the round's pending weekend act.
+      const pending = pendingEvent(career) ?? 'race';
+      goRaceBtn.textContent = `${eventLabel(pending)} · R${Math.min(
         career.currentRaceIndex + 1,
         career.calendar.length
       )}: ${track.name}`;
@@ -552,7 +555,7 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
       'Este es tu equipo: nombre, color y pilotos arriba; tu dinero en la esquina.',
       'El presupuesto se gasta en dos sitios: desarrollar el coche (aquí) o la sede.',
       'Tu coche sale por debajo de los rivales: cada mejora cuenta.',
-      'El botón Carrera te lleva al Gran Premio que toca.',
+      'El botón de la carrera te lleva al acto que toca del GP: clasificación, sprints y carrera.',
     ]
   );
 }

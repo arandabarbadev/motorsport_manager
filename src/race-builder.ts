@@ -1,6 +1,7 @@
-import { Car, Driver, RaceCarState, RaceState, Track, TyreCompound } from './types';
+import { Car, Driver, RaceCarState, RaceState, Track, TyreCompound, WeekendEvent } from './types';
 import { Roster } from './roster';
 import { CareerState } from './career';
+import { eventLaps, eventRainChance } from './weekend';
 
 // ============================================================
 // RACE BUILDER: converts the persisted roster + career into the
@@ -36,10 +37,16 @@ function developmentBonuses(roster: Roster): {
   };
 }
 
+// Spec 011: builds ONE weekend act. `event` shortens the distance
+// (quali 3 laps, sprints 1/4) and lowers the rain risk; `grid`
+// (fastest-first driver ids) chains the order from the previous
+// act's classification — without it the grid is expected pace.
 export function buildRaceStateFromRoster(
   roster: Roster,
   track: Track,
-  career: CareerState
+  career: CareerState,
+  event: WeekendEvent = 'race',
+  grid?: string[] | null
 ): RaceState {
   const teams = roster.entries.map((e) => e.team);
   const bonus = developmentBonuses(roster);
@@ -67,7 +74,19 @@ export function buildRaceStateFromRoster(
   }
 
   const pairs = drivers.map((d, i) => ({ d, spec: carSpecs[i] }));
-  pairs.sort((a, b) => expectedPace(b.d, b.spec) - expectedPace(a.d, a.spec));
+  if (grid && grid.length > 0) {
+    // Chained grid (spec 011): order fixed by the previous act.
+    const rank = new Map(grid.map((driverId, i) => [driverId, i]));
+    pairs.sort(
+      (a, b) => (rank.get(a.d.id) ?? grid.length) - (rank.get(b.d.id) ?? grid.length)
+    );
+  } else {
+    pairs.sort((a, b) => expectedPace(b.d, b.spec) - expectedPace(a.d, a.spec));
+  }
+
+  // Spec 011: the event's own distance (3 laps for quali, 1/4 for
+  // sprints, the full GP for the race).
+  const eventTrack: Track = { ...track, totalLaps: eventLaps(track, event) };
 
   const startCompounds: TyreCompound[] = ['soft', 'medium', 'hard'];
   const cars: RaceCarState[] = pairs.map((p, gridIndex) => {
@@ -100,7 +119,7 @@ export function buildRaceStateFromRoster(
   });
 
   return {
-    track,
+    track: eventTrack,
     weather: 'dry',
     cars,
     teams,
@@ -112,6 +131,7 @@ export function buildRaceStateFromRoster(
     flag: 'green',
     flagTimerSec: 0,
     raceEvents: [],
-    weatherCanChange: Math.random() < RAIN_RACE_CHANCE,
+    // Spec 011: short events carry less rain risk (40% of the race's).
+    weatherCanChange: Math.random() < eventRainChance(event, RAIN_RACE_CHANCE),
   };
 }

@@ -1,7 +1,7 @@
 import './race-screen.css';
-import { RaceCarState, RaceState, TyreCompound, Weather } from './types';
+import { RaceCarState, RaceState, TyreCompound, Weather, WeekendEvent } from './types';
 import type { RaceEvent } from './types';
-import { standingsFromClassification } from './championship';
+import { EVENT_ORDER, eventLabel, eventPrizeFactor, standingsForEvent } from './weekend';
 import {
   getFinalClassification,
   isRaceFinished,
@@ -68,7 +68,9 @@ export function createRaceScreen(
   container: HTMLElement,
   buildInitialState: () => RaceState,
   onExit?: () => void,
-  onSeasonEnd?: () => void
+  onSeasonEnd?: () => void,
+  event: WeekendEvent = 'race',
+  onContinueToNext?: () => void
 ): void {
   container.innerHTML = '';
 
@@ -101,11 +103,12 @@ export function createRaceScreen(
         <div class="flag-indicator hidden"></div>
         <div class="results-overlay hidden">
           <div class="results-panel">
-            <h2>Carrera terminada</h2>
+            <h2 class="results-title">Carrera terminada</h2>
             <div class="results-list"></div>
             <div class="finance-list"></div>
             <div class="results-total"></div>
             <div class="results-actions">
+              <button type="button" class="btn primary overlay-continue-btn hidden">Continuar</button>
               <button type="button" class="btn primary overlay-season-btn hidden">Ver resumen de temporada</button>
               <button type="button" class="btn overlay-exit-btn">Mi Equipo</button>
             </div>
@@ -149,6 +152,11 @@ export function createRaceScreen(
   const overlaySeasonBtn = root.querySelector<HTMLButtonElement>('.overlay-season-btn')!;
   if (onSeasonEnd) overlaySeasonBtn.addEventListener('click', onSeasonEnd);
   else overlaySeasonBtn.remove();
+  // Spec 011: after quali/sprints the overlay offers the next act.
+  const overlayContinueBtn = root.querySelector<HTMLButtonElement>('.overlay-continue-btn')!;
+  if (onContinueToNext) overlayContinueBtn.addEventListener('click', onContinueToNext);
+  else overlayContinueBtn.remove();
+  const resultsTitleEl = root.querySelector<HTMLElement>('.results-title')!;
   const themeBtn = root.querySelector<HTMLButtonElement>('.theme-btn')!;
   themeBtn.textContent = themeButtonLabel();
   themeBtn.addEventListener('click', () => {
@@ -233,6 +241,7 @@ export function createRaceScreen(
     lastTickAt = performance.now();
     overlayEl.classList.add('hidden');
     overlaySeasonBtn.classList.add('hidden');
+    overlayContinueBtn.classList.add('hidden');
     prizeAwarded = false;
     buildStandings();
     buildPitPanel();
@@ -562,7 +571,7 @@ export function createRaceScreen(
   }
 
   function updateHeader(): void {
-    nameEl.textContent = state.track.name;
+    nameEl.textContent = `${eventLabel(event)} · ${state.track.name}`;
     const leaderLap = Math.max(...state.cars.map((c) => c.currentLap));
     lapEl.textContent = `Vuelta ${Math.min(leaderLap + 1, state.track.totalLaps)}/${state.track.totalLaps}`;
     clockEl.textContent = formatClock(clockSec);
@@ -671,78 +680,109 @@ export function createRaceScreen(
     });
   }
 
+  // Spec 011: the restart button names the weekend act being re-run.
+  restartBtn.textContent =
+    event === 'race' ? 'Nueva carrera' : `Repetir ${eventLabel(event).toLowerCase()}`;
   restartBtn.addEventListener('click', () => setup());
 
   // Phase 4: add the prize money of both player cars to the persistent
-  // career budget (exactly once per race) and show the results overlay.
+  // career budget (exactly once per event) and show the results overlay.
+  // Spec 011: quali pays no prize, sprints pay a quarter of the table,
+  // and only the RACE settles sponsors, salaries and rent.
   function awardPrizesAndShowResults(): void {
     const playerResults = getFinalClassification(state)
       .filter((c) => c.isPlayerControlled)
       .map((c) => ({
         position: c.position,
         name: driverById(c.driverId).name,
-        prize: prizeForPosition(c.position),
+        prize: Math.round(prizeForPosition(c.position) * eventPrizeFactor(event)),
       }));
     const totalPrize = playerResults.reduce((sum, r) => sum + r.prize, 0);
 
     const career = getOrCreateCareer(0);
-    let nextRaceLabel = '';
-    const wasLastRace = career.currentRaceIndex >= career.calendar.length - 1;
-    // Replay guard: a race already recorded this season pays nothing and
-    // is not recorded twice — but season progress NEVER freezes.
+    let nextLabel = '';
+    // Replay guard: an event already recorded this season pays nothing
+    // and is not recorded twice — but season progress NEVER freezes.
     const alreadyRecorded = career.seasonResults.some(
-      (r) => r.trackId === state.track.id
+      (r) => r.trackId === state.track.id && r.event === event
     );
     if (!prizeAwarded) {
       prizeAwarded = true;
       if (!alreadyRecorded) {
-        // Full race finance: prizes + sponsor income - salaries - rent.
-        const finance = computeRaceFinance(totalPrize, career);
-        career.budget += finance.net;
+        if (event === 'race') {
+          // Full race finance: prizes + sponsor income - salaries - rent.
+          const finance = computeRaceFinance(totalPrize, career);
+          career.budget += finance.net;
+          // Breakdown rows for the results overlay.
+          financeListEl.innerHTML = '';
+          const addFinanceRow = (label: string, value: string): void => {
+            const row = document.createElement('div');
+            row.className = 'finance-row';
+            const labelEl = document.createElement('span');
+            labelEl.textContent = label;
+            const valueEl = document.createElement('strong');
+            valueEl.textContent = value;
+            row.append(labelEl, valueEl);
+            financeListEl.appendChild(row);
+          };
+          addFinanceRow('Patrocinador', `+${String(finance.sponsor).replace('.', ',')} M€`);
+          addFinanceRow('Sueldos de pilotos', `−${finance.driversCost} M€`);
+          addFinanceRow('Sueldos del personal', `−${finance.staffCost} M€`);
+          addFinanceRow('Alquiler de instalaciones', `−${finance.rentCost} M€`);
+          addFinanceRow(
+            'Balance de la carrera',
+            `${finance.net >= 0 ? '+' : '−'}${String(Math.abs(finance.net)).replace('.', ',')} M€`
+          );
+        } else {
+          // Short events pay the prize only: the weekend's bills are
+          // settled together in the race.
+          career.budget += totalPrize;
+          financeListEl.innerHTML = '';
+          const note = document.createElement('div');
+          note.className = 'finance-row';
+          const noteLabel = document.createElement('span');
+          noteLabel.textContent = 'Patrocinadores y gastos';
+          const noteValue = document.createElement('strong');
+          noteValue.textContent = 'se liquidan en la carrera';
+          note.append(noteLabel, noteValue);
+          financeListEl.appendChild(note);
+        }
         // Phase 6: record the season result (best of the two player cars).
         const bestPosition = Math.min(...playerResults.map((r) => r.position));
         career.seasonResults.push({
           trackId: state.track.id,
+          event,
           position: bestPosition,
           prize: totalPrize,
-          // Phase 7: championship points for every driver of this race.
-          standings: standingsFromClassification(getFinalClassification(state)),
+          // Spec 011: championship points of THIS event (sprints pay the
+          // top-8 table), in final order — it seeds the next act's grid.
+          standings: standingsForEvent(getFinalClassification(state), event),
         });
-        // Breakdown rows for the results overlay.
-        financeListEl.innerHTML = '';
-        const addFinanceRow = (label: string, value: string): void => {
-          const row = document.createElement('div');
-          row.className = 'finance-row';
-          const labelEl = document.createElement('span');
-          labelEl.textContent = label;
-          const valueEl = document.createElement('strong');
-          valueEl.textContent = value;
-          row.append(labelEl, valueEl);
-          financeListEl.appendChild(row);
-        };
-        addFinanceRow('Patrocinador', `+${String(finance.sponsor).replace('.', ',')} M€`);
-        addFinanceRow('Sueldos de pilotos', `−${finance.driversCost} M€`);
-        addFinanceRow('Sueldos del personal', `−${finance.staffCost} M€`);
-        addFinanceRow('Alquiler de instalaciones', `−${finance.rentCost} M€`);
-        addFinanceRow(
-          'Balance de la carrera',
-          `${finance.net >= 0 ? '+' : '−'}${String(Math.abs(finance.net)).replace('.', ',')} M€`
-        );
       }
-      if (!wasLastRace) {
-        // Phase 5: advance the calendar after a finished race.
-        career.currentRaceIndex += 1;
-        const next = getTrackById(career.calendar[career.currentRaceIndex]);
-        nextRaceLabel = next ? `Siguiente GP: ${next.name}` : '';
+      if (event === 'race') {
+        const wasLastRace = career.currentRaceIndex >= career.calendar.length - 1;
+        if (!wasLastRace) {
+          // Phase 5: advance the calendar after the finished race.
+          career.currentRaceIndex += 1;
+          const next = getTrackById(career.calendar[career.currentRaceIndex]);
+          nextLabel = next ? `Siguiente GP: ${next.name}` : '';
+        } else {
+          // Phase 6: last race of the season -> do NOT advance.
+          nextLabel = 'Temporada completada';
+          overlaySeasonBtn.classList.remove('hidden');
+        }
       } else {
-        // Phase 6: last race of the season -> do NOT advance.
-        nextRaceLabel = 'Temporada completada';
-        overlaySeasonBtn.classList.remove('hidden');
+        // Spec 011: chain to the next weekend act (quali -> S1 -> S2).
+        const next = EVENT_ORDER[EVENT_ORDER.indexOf(event) + 1] ?? 'race';
+        nextLabel = `Siguiente: ${eventLabel(next)}`;
+        overlayContinueBtn.textContent = `Continuar a ${eventLabel(next)}`;
+        overlayContinueBtn.classList.remove('hidden');
       }
       saveCareer(career);
       scheduleCloudSync();
     }
 
+    resultsTitleEl.textContent = `${eventLabel(event)}: resultado`;
     resultsListEl.innerHTML = '';
     for (const r of playerResults) {
       const row = document.createElement('div');
@@ -754,7 +794,7 @@ export function createRaceScreen(
       (row.querySelector<HTMLElement>('.result-name')!).textContent = r.name;
       resultsListEl.appendChild(row);
     }
-    resultsTotalEl.textContent = `Premio: +${totalPrize} M€ · Presupuesto: ${career.budget} M€ · ${nextRaceLabel}`;
+    resultsTotalEl.textContent = `Premio: +${totalPrize} M€ · Presupuesto: ${career.budget} M€ · ${nextLabel}`;
     overlayEl.classList.remove('hidden');
   }
 

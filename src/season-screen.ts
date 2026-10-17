@@ -1,5 +1,6 @@
 import './season-screen.css';
 import { getOrCreateCareer, isSeasonComplete, saveCareer } from './career';
+import { eventShortLabel } from './weekend';
 import { getTrackById } from './tracks-generator';
 import { themeButtonLabel, toggleTheme } from './theme';
 import { scheduleCloudSync } from './cloud';
@@ -49,8 +50,11 @@ export function createSeasonScreen(container: HTMLElement, onExit: () => void): 
     const row = document.createElement('div');
     row.className = 'season-row';
     const trackName = getTrackById(result.trackId)?.name ?? result.trackId;
+    // Spec 011: rows are labelled round + weekend act; the race keeps
+    // the plain round number (it is "the" result of the weekend).
+    const round = career.calendar.indexOf(result.trackId) + 1 || i + 1;
     row.innerHTML = `
-      <span class="round">R${String(i + 1).padStart(2, '0')}</span>
+      <span class="round">R${String(round).padStart(2, '0')}${eventShortLabel(result.event ?? 'race')}</span>
       <span class="track"></span>
       <span class="pos">P${result.position}</span>
       <span class="prize">+${result.prize} M€</span>`;
@@ -58,7 +62,7 @@ export function createSeasonScreen(container: HTMLElement, onExit: () => void): 
     list.appendChild(row);
   });
   if (career.seasonResults.length === 0) {
-    list.innerHTML = '<div class="empty">Todavía no hay carreras completadas.</div>';
+    list.innerHTML = '<div class="empty">Todavía no hay resultados esta temporada.</div>';
   }
   card.appendChild(list);
 

@@ -2,6 +2,7 @@ import { INITIAL_BUDGET } from './roster';
 import { ALL_TRACKS } from './tracks-generator';
 import { CAREER_STORAGE_KEY } from './storage-keys';
 import type { RaceStandingEntry } from './championship';
+import type { WeekendEvent } from './types';
 
 // ============================================================
 // CAREER STATE: persistent economy and season.
@@ -24,9 +25,13 @@ export const STAFF_UPGRADE_BASE_COST = 30; // M€: next level costs 30 x nextLe
 
 export interface SeasonResult {
   trackId: string;
+  // Spec 011: which weekend act this result belongs to
+  // ('quali' | 'sprint1' | 'sprint2' | 'race'; legacy saves migrate to 'race').
+  event: WeekendEvent;
   position: number; // best of the two player cars
-  prize: number; // total prize money of that race (both cars)
-  // Phase 7: points earned by every driver in this race (championship).
+  prize: number; // total prize money of that event (both cars)
+  // Phase 7: points earned by every driver in this event (championship),
+  // in final-classification order (it seeds the next event's grid).
   standings?: RaceStandingEntry[];
 }
 
@@ -78,8 +83,11 @@ export function saveCareer(career: CareerState): void {
   localStorage.setItem(CAREER_STORAGE_KEY, JSON.stringify(career));
 }
 
+// Spec 011: the season is done when every round has its RACE result
+// (quali and sprints are extra recorded acts of the same weekend).
 export function isSeasonComplete(career: CareerState): boolean {
-  return career.seasonResults.length >= career.calendar.length;
+  const races = career.seasonResults.filter((r) => r.event === 'race').length;
+  return races >= career.calendar.length;
 }
 
 // Next level cost of a staff category (1 -> 2 costs 30, 4 -> 5 costs 120).
@@ -104,7 +112,12 @@ export function loadCareer(): CareerState | null {
     )
       .map((r) =>
         r && typeof r.trackId === 'string'
-          ? { ...r, trackId: migrateTrackId(r.trackId) }
+          ? {
+              ...r,
+              trackId: migrateTrackId(r.trackId),
+              // Spec 011 migration: pre-weekend saves only had races.
+              event: (r.event ?? 'race') as WeekendEvent,
+            }
           : null
       )
       .filter((r): r is SeasonResult => r !== null && r.trackId !== null)
