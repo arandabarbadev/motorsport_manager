@@ -6,7 +6,7 @@ import {
   TEAM_NAME_PREFIXES,
   TEAM_NAME_SUFFIXES,
 } from './names-data';
-import { ROSTER_STORAGE_KEY } from './storage-keys';
+import { activeRosterKey } from './slots';
 
 // ============================================================
 // ROSTER: the player team + 9 rival teams (2 drivers each = 20
@@ -182,14 +182,15 @@ export function regenerateRivals(roster: Roster): Roster {
 }
 
 export function saveRoster(roster: Roster): void {
-  localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(roster));
+  // Spec 013: saves live in the ACTIVE slot's key.
+  localStorage.setItem(activeRosterKey(), JSON.stringify(roster));
 }
 
 // Returns null if there is no save or it does not look valid;
 // the caller regenerates a fresh roster in that case.
 export function loadRoster(): Roster | null {
   try {
-    const raw = localStorage.getItem(ROSTER_STORAGE_KEY);
+    const raw = localStorage.getItem(activeRosterKey());
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Roster;
     if (parsed.version !== 1 || !Array.isArray(parsed.entries)) return null;

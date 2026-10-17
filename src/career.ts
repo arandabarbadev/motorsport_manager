@@ -1,6 +1,6 @@
 import { INITIAL_BUDGET } from './roster';
 import { ALL_TRACKS } from './tracks-generator';
-import { CAREER_STORAGE_KEY } from './storage-keys';
+import { activeCareerKey } from './slots';
 import type { RaceStandingEntry } from './championship';
 import type { WeekendEvent } from './types';
 
@@ -11,7 +11,7 @@ import type { WeekendEvent } from './types';
 // - staff: headquarters staff levels (pit time, cheaper upgrades,
 //   better sponsor income).
 // - sponsorId: the signed sponsor (0..99), see sponsors.ts.
-// Key: "f1manager:career:v1".
+// Key: the ACTIVE slot's ("f1manager:career:{a|b|c}", spec 013).
 // ============================================================
 
 export interface StaffState {
@@ -80,7 +80,8 @@ export function createDefaultCareer(budget: number = INITIAL_BUDGET): CareerStat
 }
 
 export function saveCareer(career: CareerState): void {
-  localStorage.setItem(CAREER_STORAGE_KEY, JSON.stringify(career));
+  // Spec 013: saves live in the ACTIVE slot's key.
+  localStorage.setItem(activeCareerKey(), JSON.stringify(career));
 }
 
 // Spec 011: the season is done when every round has its RACE result
@@ -97,7 +98,7 @@ export function staffUpgradeCost(currentLevel: number): number {
 
 export function loadCareer(): CareerState | null {
   try {
-    const raw = localStorage.getItem(CAREER_STORAGE_KEY);
+    const raw = localStorage.getItem(activeCareerKey());
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<CareerState>;
     if (parsed.version !== 1 || typeof parsed.budget !== 'number') return null;

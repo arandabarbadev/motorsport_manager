@@ -62,7 +62,11 @@ const STAFF_INFO: Record<StaffKey, { label: string; effect: (level: number) => s
   },
 };
 
-export function createTeamScreen(container: HTMLElement, onGoRace: () => void): void {
+export function createTeamScreen(
+  container: HTMLElement,
+  onGoRace: () => void,
+  onGoSlots?: () => void
+): void {
   container.innerHTML = '';
   let roster: Roster = loadRoster() ?? createDefaultRoster();
   saveRoster(roster);
@@ -85,6 +89,7 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
       </nav>
       <div class="header-right">
         <div class="budget-chip"><span class="budget-value"></span> M</div>
+        <button type="button" class="btn slots-btn" title="Las 3 partidas guardadas: crear, cambiar o borrar">Partidas</button>
         <button type="button" class="btn reset-season-btn" title="Empezar de cero: reinicia dinero, patrocinador, desarrollos, sede y temporada">Reiniciar</button>
         <button type="button" class="btn theme-btn"></button>
         <button type="button" class="btn install-btn hidden">Instalar app</button>
@@ -105,6 +110,9 @@ export function createTeamScreen(container: HTMLElement, onGoRace: () => void): 
   const goRaceBtn = root.querySelector<HTMLButtonElement>('.go-race-btn')!;
   const themeBtn = root.querySelector<HTMLButtonElement>('.theme-btn')!;
   const resetBtn = root.querySelector<HTMLButtonElement>('.reset-season-btn')!;
+  const slotsBtn = root.querySelector<HTMLButtonElement>('.slots-btn')!;
+  if (onGoSlots) slotsBtn.addEventListener('click', onGoSlots);
+  else slotsBtn.remove();
   const logoutBtn = root.querySelector<HTMLButtonElement>('.logout-btn')!;
   const navBtns = [...root.querySelectorAll<HTMLButtonElement>('.nav-btn')];
 

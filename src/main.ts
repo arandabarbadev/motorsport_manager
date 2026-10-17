@@ -3,6 +3,8 @@ import { createAuthScreen } from './auth-screen';
 import { createTeamScreen } from './team-screen';
 import { createRaceScreen } from './race-screen';
 import { createSeasonScreen } from './season-screen';
+import { createSlotsScreen } from './slots-screen';
+import { migrateLegacySaves } from './slots';
 import { loadRoster } from './roster';
 import { buildRaceStateFromRoster, expectedPace } from './race-builder';
 import { gridForEvent, pendingEvent } from './weekend';
@@ -20,7 +22,13 @@ const app = document.getElementById('app')!;
 initTheme();
 
 function showTeamScreen(): void {
-  swapScreen(app, () => createTeamScreen(app, showRaceScreen));
+  swapScreen(app, () => createTeamScreen(app, showRaceScreen, showSlotsScreen));
+}
+
+// Spec 013: the three save slots. Playing/creating a slot activates
+// it and comes back to the team screen, which loads that slot.
+function showSlotsScreen(): void {
+  swapScreen(app, () => createSlotsScreen(app, showTeamScreen));
 }
 
 function showSeasonScreen(): void {
@@ -65,6 +73,8 @@ function showRaceScreen(): void {
 // Auth gate: with Firebase configured, wait for the restored session
 // (or show the login screen). Without config, straight to local mode.
 function start(): void {
+  // Spec 013: pre-slots saves become slot 'a' before anything loads.
+  migrateLegacySaves();
   if (!firebaseConfigured) {
     createAuthScreen(app, showTeamScreen);
     return;

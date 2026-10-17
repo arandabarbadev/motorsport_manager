@@ -1,5 +1,15 @@
 import { FIREBASE_CONFIG } from './firebase-config';
-import { CAREER_STORAGE_KEY, ROSTER_STORAGE_KEY } from './storage-keys';
+import {
+  SLOT_IDS,
+  SlotId,
+  careerKeyFor,
+  getActiveSlot,
+  rawSlotName,
+  rosterKeyFor,
+  setActiveSlot,
+  setSlotName,
+  slotName,
+} from './slots';
 
 // ============================================================
 // CLOUD SYNC (Firebase): email/password login + career/roster
@@ -75,13 +85,25 @@ export async function logout(): Promise<void> {
   currentUid = null;
 }
 
-interface CloudState {
+interface CloudSlotEntry {
   career: string | null;
   roster: string | null;
+  name: string | null;
+}
+
+// Spec 013: one document per user carries the THREE slots (and the
+// active one). The pre-013 shape ({career, roster} only) is read as
+// slot 'a' — same migration as the local one.
+interface CloudSlotsDoc {
+  slots?: Partial<Record<SlotId, Partial<CloudSlotEntry>>>;
+  active?: string;
+  // Legacy (pre-013) fields, only for reading old documents.
+  career?: string | null;
+  roster?: string | null;
 }
 
 // On login: if the cloud save differs from the local one, the cloud
-// version wins and the page reloads with it (equal strings are
+// version wins and the page reloads with it (equal bundles are
 // skipped, so there is no reload loop). Empty cloud -> push local.
 async function pullCloudState(uid: string): Promise<void> {
   if (!db) return;
@@ -92,13 +114,48 @@ async function pullCloudState(uid: string): Promise<void> {
       await pushCloudState(uid);
       return;
     }
-    const data = snap.data() as Partial<CloudState>;
-    const sameCareer = data.career === localStorage.getItem(CAREER_STORAGE_KEY);
-    const sameRoster = data.roster === localStorage.getItem(ROSTER_STORAGE_KEY);
-    if (sameCareer && sameRoster) return;
-    if (data.career) localStorage.setItem(CAREER_STORAGE_KEY, data.career);
-    if (data.roster) localStorage.setItem(ROSTER_STORAGE_KEY, data.roster);
-    location.reload();
+    const data = snap.data() as CloudSlotsDoc;
+    let changed = false;
+
+    if (data.slots && typeof data.slots === 'object') {
+      // Current format: the three slots + the active one.
+      for (const slot of SLOT_IDS) {
+        const entry = data.slots[slot] ?? {};
+        const cloudCareer = entry.career ?? null;
+        const cloudRoster = entry.roster ?? null;
+        const cloudName = entry.name ?? null;
+        if (cloudCareer !== localStorage.getItem(careerKeyFor(slot))) {
+          changed = true;
+          if (cloudCareer !== null) localStorage.setItem(careerKeyFor(slot), cloudCareer);
+          else localStorage.removeItem(careerKeyFor(slot));
+        }
+        if (cloudRoster !== localStorage.getItem(rosterKeyFor(slot))) {
+          changed = true;
+          if (cloudRoster !== null) localStorage.setItem(rosterKeyFor(slot), cloudRoster);
+          else localStorage.removeItem(rosterKeyFor(slot));
+        }
+        if (cloudName !== rawSlotName(slot)) {
+          changed = true;
+          if (cloudName !== null) setSlotName(slot, cloudName);
+          else setSlotName(slot, ''); // back to the default name
+        }
+      }
+      const active = data.active === 'b' || data.active === 'c' ? data.active : 'a';
+      if (active !== getActiveSlot()) {
+        changed = true;
+        setActiveSlot(active as SlotId);
+      }
+    } else if ((data.career ?? null) !== null || (data.roster ?? null) !== null) {
+      // Legacy single save: becomes slot 'a' (only if 'a' is empty,
+      // never overwriting a slot that was already played).
+      if (localStorage.getItem(careerKeyFor('a')) === null) {
+        if (data.career) localStorage.setItem(careerKeyFor('a'), data.career);
+        if (data.roster) localStorage.setItem(rosterKeyFor('a'), data.roster);
+        changed = true;
+      }
+    }
+
+    if (changed) location.reload();
   } catch {
     // offline or permissions: keep playing locally
   }
@@ -120,11 +177,18 @@ async function pushCloudState(uid: string): Promise<void> {
   if (!db) return;
   try {
     const fs = await import('firebase/firestore');
-    const state: CloudState = {
-      career: localStorage.getItem(CAREER_STORAGE_KEY),
-      roster: localStorage.getItem(ROSTER_STORAGE_KEY),
-    };
-    await fs.setDoc(fs.doc(db, 'f1manager', uid), state);
+    // Spec 013: push the three slots + the active one (one document
+    // per user). Empty slots travel as nulls so deletes replicate.
+    const slots = {} as Record<SlotId, CloudSlotEntry>;
+    for (const slot of SLOT_IDS) {
+      const career = localStorage.getItem(careerKeyFor(slot));
+      slots[slot] = {
+        career,
+        roster: localStorage.getItem(rosterKeyFor(slot)),
+        name: career !== null ? slotName(slot) : null,
+      };
+    }
+    await fs.setDoc(fs.doc(db, 'f1manager', uid), { slots, active: getActiveSlot() });
   } catch {
     // ignore: the next save retries
   }
