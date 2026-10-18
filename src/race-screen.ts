@@ -63,6 +63,10 @@ interface PitBox {
   carDriverId: string;
   status: HTMLElement;
   buttons: HTMLButtonElement[];
+  // Spec 015: current-rubber line (compound chip + wear bar + %).
+  tyre: HTMLElement;
+  wearFill: HTMLElement;
+  pct: HTMLElement;
 }
 
 export function createRaceScreen(
@@ -346,9 +350,9 @@ export function createRaceScreen(
       'Carrera y boxes en 4 ideas',
       [
         'La carrera corre sola: pausa y velocidades (1x-20x) arriba.',
-        'Tus paradas se ordenan en "Mis boxes": elige la goma y el coche entrará al cruzar meta.',
-        'La tabla muestra hueco, goma y desgaste de los 20 coches.',
-        'Cada coche lleva su dorsal: identifícalos sin depender de los colores.',
+        'Tus paradas se ordenan en "Mis boxes": la goma que llevas está al lado de los botones.',
+        'La tabla muestra el hueco de los 20; la goma y su desgaste, solo de tus pilotos.',
+        'Cada círculo lleva su dorsal pintado dentro: identifícalos sin depender de los colores.',
       ]
     );
   }
@@ -592,7 +596,9 @@ export function createRaceScreen(
 
   // Spec 014: slightly slimmer cars (1.3% of the canvas' short side)
   // so the widened road reads wide and the roam stays on the asphalt.
-  const carRadius = (): number => Math.max(4, 0.013 * Math.min(canvas.width, canvas.height));
+  // Spec 015: minimum 7px so the race number fits INSIDE the dot on
+  // small canvases too (phones render the track at ~38vh).
+  const carRadius = (): number => Math.max(7, 0.013 * Math.min(canvas.width, canvas.height));
 
   // Event feedback layer: highlight rings + rising floating texts.
   function drawEffects(now: number, alpha: number): void {
@@ -654,13 +660,15 @@ export function createRaceScreen(
 
       if (car.status === 'dnf') {
         // Crashed/broken car: faded grey ghost on the track.
+        // Spec 015: skip THIS car, never the rest of the field (the
+        // old `return` left the canvas empty once a DNF sank to last).
         ctx.beginPath();
         ctx.arc(p.x, p.y, r * 0.8, 0, Math.PI * 2);
         ctx.globalAlpha = 0.3;
         ctx.fillStyle = cssVar('--dim');
         ctx.fill();
         ctx.globalAlpha = 1;
-        return;
+        continue;
       }
 
       ctx.beginPath();
@@ -673,21 +681,24 @@ export function createRaceScreen(
       ctx.strokeStyle = car.isPlayerControlled ? '#ffd700' : cssVar('--car-outline');
       ctx.stroke();
 
-      // Race number above the dot (spec 008): identifies the car
-      // without relying on team colors. Light text with a dark
-      // outline stays readable over any team color and background.
+      // Spec 015: the race number lives INSIDE the car dot (spec 008
+      // drew it floating above). It scales with the effective radius
+      // (the dot shrinks in the pits); the dark outline is THIN so it
+      // rings the digits without drowning the team color, and the
+      // white fill stays readable over any color in both themes.
+      const rr = car.status === 'inPit' ? r * 0.75 : r;
       const dorsal = String(driverById(car.driverId).number ?? '');
       if (dorsal) {
-        ctx.font = `bold ${Math.max(11, Math.round(r * 1.5))}px system-ui, sans-serif`;
+        ctx.font = `bold ${Math.max(9, Math.round(rr * 1.05))}px system-ui, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        const ny = p.y - r * 2.1;
-        ctx.lineWidth = Math.max(2.5, r * 0.38);
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
-        ctx.strokeText(dorsal, p.x, ny);
+        ctx.lineWidth = Math.max(1.5, rr * 0.14);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.strokeText(dorsal, p.x, p.y);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(dorsal, p.x, ny);
+        ctx.fillText(dorsal, p.x, p.y);
         ctx.textAlign = 'start';
+        ctx.textBaseline = 'alphabetic';
       }
     }
   }
@@ -699,7 +710,11 @@ export function createRaceScreen(
     rows.clear();
     for (const car of state.cars) {
       const li = document.createElement('li');
-      li.className = 'standing-row' + (car.isPlayerControlled ? ' player' : '');
+      // Spec 015: tyre compound + wear are the player's own strategy
+      // info — rival rows keep the cells (grid alignment) but stay
+      // empty.
+      li.className =
+        'standing-row' + (car.isPlayerControlled ? ' player' : ' no-tyre');
       li.innerHTML = `
         <span class="pos"></span>
         <span class="num"></span>
@@ -737,12 +752,16 @@ export function createRaceScreen(
       standingsEl.appendChild(row.root);
       row.pos.textContent = String(car.position);
       row.gap.textContent = car.status === 'dnf' ? 'DNF' : formatGap(car, leaderLap);
-      row.tyre.textContent = COMPOUND_LABEL[car.tyre.compound];
-      row.tyre.className = 'tyre ' + car.tyre.compound;
-      const wear = Math.round(car.tyre.wear);
-      row.wearFill.style.width = wear + '%';
-      row.wearFill.className =
-        'wear-fill' + (wear >= 80 ? ' danger' : wear >= 50 ? ' warn' : '');
+      if (car.isPlayerControlled) {
+        // Spec 015: only the player's cars show rubber strategy; the
+        // rivals' cells stay empty (class no-tyre hides the bar).
+        row.tyre.textContent = COMPOUND_LABEL[car.tyre.compound];
+        row.tyre.className = 'tyre ' + car.tyre.compound;
+        const wear = Math.round(car.tyre.wear);
+        row.wearFill.style.width = wear + '%';
+        row.wearFill.className =
+          'wear-fill' + (wear >= 80 ? ' danger' : wear >= 50 ? ' warn' : '');
+      }
       row.root.classList.toggle('pitting', car.status === 'inPit');
       row.root.classList.toggle('dnf', car.status === 'dnf');
       row.pitflag.textContent =
@@ -750,6 +769,14 @@ export function createRaceScreen(
     }
     for (const box of pitBoxes) {
       const car = state.cars.find((c) => c.driverId === box.carDriverId)!;
+      // Spec 015: current rubber next to the compound buttons.
+      box.tyre.textContent = COMPOUND_LABEL[car.tyre.compound];
+      box.tyre.className = 'tyre ' + car.tyre.compound;
+      const wear = Math.round(car.tyre.wear);
+      box.wearFill.style.width = wear + '%';
+      box.wearFill.className =
+        'wear-fill' + (wear >= 80 ? ' danger' : wear >= 50 ? ' warn' : '');
+      box.pct.textContent = `${wear}%`;
       if (car.status === 'inPit') {
         pendingPit.delete(box.carDriverId);
         box.status.textContent = `En boxes: ${Math.ceil(car.pitTimerSec)}s`;
@@ -816,6 +843,14 @@ export function createRaceScreen(
       const title = document.createElement('div');
       title.className = 'pit-name';
       title.textContent = `${driverById(car.driverId).name} — cambiar a:`;
+      // Spec 015: the rubber the car is ON, right where you pick the
+      // next one — compound chip, wear bar and percentage.
+      const tyreLine = document.createElement('div');
+      tyreLine.className = 'pit-tyre';
+      tyreLine.innerHTML = `
+        <span class="tyre"></span>
+        <span class="wear"><span class="wear-fill"></span></span>
+        <span class="pit-tyre-pct"></span>`;
       const btns = document.createElement('div');
       btns.className = 'pit-btns';
       const buttons = compounds.map((compound) => {
@@ -846,9 +881,16 @@ export function createRaceScreen(
       const status = document.createElement('div');
       status.className = 'pit-status';
       status.textContent = '0 parada(s)';
-      box.append(title, btns, status);
+      box.append(title, tyreLine, btns, status);
       pitPanel.appendChild(box);
-      pitBoxes.push({ carDriverId: car.driverId, status, buttons });
+      pitBoxes.push({
+        carDriverId: car.driverId,
+        status,
+        buttons,
+        tyre: tyreLine.querySelector<HTMLElement>('.tyre')!,
+        wearFill: tyreLine.querySelector<HTMLElement>('.wear-fill')!,
+        pct: tyreLine.querySelector<HTMLElement>('.pit-tyre-pct')!,
+      });
     }
   }
 

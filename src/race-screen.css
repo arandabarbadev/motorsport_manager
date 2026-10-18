@@ -177,6 +177,32 @@
   flex: 1;
 }
 
+/* Spec 015: current rubber of each player car, right where the next
+   compound is chosen. */
+.pit-tyre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 6px;
+}
+
+.pit-tyre .tyre {
+  font-size: 12px;
+  min-width: 1.2em;
+}
+
+.pit-tyre .wear {
+  flex: 1;
+}
+
+.pit-tyre-pct {
+  min-width: 3.2em;
+  text-align: right;
+  font-size: 12px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
 .pit-status {
   font-size: 12px;
   color: var(--dim);
@@ -285,6 +311,13 @@
 
 .standing-row.pitting .pitflag {
   visibility: visible;
+}
+
+/* Spec 015: rival rows keep the tyre cells' grid slots (alignment)
+   but show nothing in them. */
+.standing-row.no-tyre .tyre,
+.standing-row.no-tyre .wear {
+  visibility: hidden;
 }
 
 .standing-row.dnf {
