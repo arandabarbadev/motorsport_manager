@@ -19,6 +19,7 @@ import { scheduleCloudSync } from './cloud';
 import { showGuideOnce } from './guide';
 import { buildTrackSampler, Point, TrackSampler } from './track-path';
 import { lateralTarget, stepLateral } from './racing-line';
+import { createNoticeHub } from './notices';
 
 // ============================================================
 // RACE SCREEN (Phase 2)
@@ -187,6 +188,11 @@ export function createRaceScreen(
     drawTrackLayer();
   });
 
+  // Spec 017: generic notice hub, floating over the track. The race
+  // uses it for mechanical retirements; the component itself is
+  // screen-agnostic (see notices.ts).
+  const notices = createNoticeHub(root.querySelector<HTMLElement>('.track-wrap')!);
+
   // Mutable screen state (rebuilt on restart).
   let state = buildInitialState();
   let sampler: TrackSampler = buildTrackSampler(state.track.path);
@@ -297,6 +303,15 @@ export function createRaceScreen(
           `${lapLabel()} · ${label} ${driverById(ev.carDriverId).name} (P${car?.position ?? '?'})`,
           'incident'
         );
+        // Spec 017: a retirement by FAILURE gets the notice card —
+        // spins and crashes already read loud enough on their own.
+        if (ev.incidentKind === 'mechanical') {
+          notices.notify({
+            kind: 'alert',
+            title: 'Retirada por avería',
+            body: `${driverById(ev.carDriverId).name} · P${car?.position ?? '?'}`,
+          });
+        }
       }
     }
     if (floatingTexts.length > 6) floatingTexts = floatingTexts.slice(-6);
