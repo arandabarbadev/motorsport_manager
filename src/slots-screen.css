@@ -117,6 +117,38 @@
   font-style: italic;
 }
 
+/* Spec 016: difficulty picker on an empty slot (chosen at creation,
+   baked into the career — not changeable afterwards). */
+.slot-diff {
+  display: grid;
+  gap: 6px;
+}
+
+.slot-diff-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+
+.slot-diff-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.slot-diff-btn {
+  flex: 1;
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.slot-diff-hint {
+  font-size: 12px;
+  color: var(--dim);
+}
+
 .slot-actions {
   display: flex;
   gap: 8px;

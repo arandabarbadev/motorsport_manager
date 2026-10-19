@@ -1,4 +1,5 @@
 import { CAREER_STORAGE_KEY, ROSTER_STORAGE_KEY } from './storage-keys';
+import { difficultyOrHard, Difficulty, isDifficulty } from './difficulty';
 
 // ============================================================
 // SAVE SLOTS (spec 013): three independent saves (a/b/c), each
@@ -13,6 +14,10 @@ export const SLOT_IDS: readonly SlotId[] = ['a', 'b', 'c'];
 
 const ACTIVE_KEY = 'f1manager:active-slot';
 const META_KEY = 'f1manager:slots-meta'; // { a: "nombre", ... }
+// Spec 016: the difficulty chosen on an EMPTY slot's card, waiting
+// for the team screen to bake it into the new career (local only —
+// what travels to the cloud is the career itself).
+const DIFF_KEY = 'f1manager:slot-diff';
 const NAME_MAX = 24;
 
 const DEFAULT_NAMES: Record<SlotId, string> = {
@@ -83,6 +88,32 @@ export function setSlotName(slot: SlotId, name: string): void {
   writeMeta(meta);
 }
 
+// ---- Pending difficulty (spec 016) ----
+
+// Difficulty selected on an empty slot's card. Defaults to 'normal'
+// for brand-new games; existing saves read their own career's
+// difficulty instead of this.
+export function getSlotDifficulty(slot: SlotId): Difficulty {
+  try {
+    const map = JSON.parse(localStorage.getItem(DIFF_KEY) ?? '{}') as Record<string, unknown>;
+    return isDifficulty(map[slot]) ? map[slot] : 'normal';
+  } catch {
+    return 'normal';
+  }
+}
+
+export function setSlotDifficulty(slot: SlotId, difficulty: Difficulty): void {
+  try {
+    const map = JSON.parse(localStorage.getItem(DIFF_KEY) ?? '{}') as Record<string, unknown>;
+    if (difficulty === 'normal') delete map[slot]; // normal = default, keep it clean
+    else map[slot] = difficulty;
+    localStorage.setItem(DIFF_KEY, JSON.stringify(map));
+  } catch {
+    // corrupt map: start it over with just this slot
+    localStorage.setItem(DIFF_KEY, JSON.stringify({ [slot]: difficulty }));
+  }
+}
+
 // ---- Slot lifecycle ----
 
 // A slot "exists" when it has a career save in it.
@@ -92,10 +123,12 @@ export function slotExists(slot: SlotId): boolean {
 
 // Delete ONE slot. If it was the active one, the active slot moves
 // to the first slot with content ('a' when everything is empty —
-// the team screen will create a fresh save there).
+// the team screen will create a fresh save there). Spec 016: the
+// pending difficulty choice dies with the slot.
 export function deleteSlot(slot: SlotId): void {
   localStorage.removeItem(rosterKeyFor(slot));
   localStorage.removeItem(careerKeyFor(slot));
+  setSlotDifficulty(slot, 'normal'); // clears a non-default entry
   const meta = readMeta();
   delete meta[slot];
   writeMeta(meta);
@@ -127,6 +160,7 @@ export interface SlotSummary {
   round: number;
   rounds: number;
   budget: number;
+  difficulty: Difficulty; // spec 016 (legacy saves read as 'hard')
 }
 
 export function slotSummary(slot: SlotId): SlotSummary | null {
@@ -138,6 +172,7 @@ export function slotSummary(slot: SlotId): SlotSummary | null {
       currentRaceIndex: number;
       calendar: unknown[];
       budget: number;
+      difficulty: unknown;
     }>;
     const rounds = Array.isArray(career.calendar) ? career.calendar.length : 24;
     return {
@@ -148,6 +183,7 @@ export function slotSummary(slot: SlotId): SlotSummary | null {
       ),
       rounds,
       budget: typeof career.budget === 'number' ? career.budget : 0,
+      difficulty: difficultyOrHard(career.difficulty),
     };
   } catch {
     return null;

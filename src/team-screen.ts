@@ -24,7 +24,9 @@ import {
 import { ALL_TRACKS, getTrackById } from './tracks-generator';
 import { eventLabel, pendingEvent } from './weekend';
 import { themeButtonLabel, toggleTheme } from './theme';
-import { ALL_SPONSORS, isSponsorUnlocked, MAX_ACTIVE_SPONSORS } from './sponsors';
+import { getActiveSlot, getSlotDifficulty } from './slots';
+import { DIFFICULTY_PRESETS } from './difficulty';
+import { ALL_SPONSORS, isSponsorUnlocked, MAX_ACTIVE_SPONSORS, sponsorPayPerRace } from './sponsors';
 import { computeRaceFinance, sponsorIncome } from './finance';
 import { computeChampionship } from './championship';
 import { logout, scheduleCloudSync, watchAuth } from './cloud';
@@ -68,10 +70,15 @@ export function createTeamScreen(
   onGoSlots?: () => void
 ): void {
   container.innerHTML = '';
-  let roster: Roster = loadRoster() ?? createDefaultRoster();
+  // Spec 016: a save CREATED here adopts the difficulty chosen on the
+  // slot card (default 'normal'); an existing save keeps its own.
+  const slotDiff = getSlotDifficulty(getActiveSlot());
+  const slotPreset = DIFFICULTY_PRESETS[slotDiff];
+  let roster: Roster = loadRoster() ?? createDefaultRoster(slotPreset.initialBudget);
   saveRoster(roster);
   let career: CareerState = getOrCreateCareer(
-    roster.entries.find((e) => e.team.id === roster.playerTeamId)!.team.budget
+    roster.entries.find((e) => e.team.id === roster.playerTeamId)!.team.budget,
+    slotDiff
   );
   saveCareer(career);
   let tab: TabId = 'team';
@@ -173,14 +180,17 @@ export function createTeamScreen(
   });
 
   resetBtn.addEventListener('click', () => {
+    // Spec 016: resetting keeps the save's difficulty and rebuilds
+    // with ITS starting budget.
+    const preset = DIFFICULTY_PRESETS[career.difficulty];
     if (
       !window.confirm(
-        '¿Empezar de CERO? Se reinicia TODO: dinero (200 M), patrocinadores, desarrollos del coche, sede y temporada. Solo se conservan los nombres de tu equipo y pilotos.'
+        `¿Empezar de CERO? Se reinicia TODO: dinero (${preset.initialBudget} M), patrocinadores, desarrollos del coche, sede y temporada. Solo se conservan los nombres de tu equipo y pilotos.`
       )
     ) {
       return;
     }
-    career = createDefaultCareer(); // fresh economy, staff, sponsor and season
+    career = createDefaultCareer(preset.initialBudget, career.difficulty); // fresh economy, staff, sponsor and season
     playerEntry().developments = {}; // car developments back to zero
     syncAll();
     refresh();
@@ -458,7 +468,7 @@ export function createTeamScreen(
         <button type="button" class="btn sponsor-btn"></button>`;
       row.querySelector<HTMLElement>('.sponsor-name')!.textContent = sponsor.name;
       row.querySelector<HTMLElement>('.sponsor-pay')!.textContent =
-        `${String(sponsor.payPerRace).replace('.', ',')} M€/carrera · exige P${sponsor.requiredPosition}`;
+        `${String(sponsorPayPerRace(sponsor, career.difficulty)).replace('.', ',')} M€/carrera · exige P${sponsor.requiredPosition}`;
       const btn = row.querySelector<HTMLButtonElement>('.sponsor-btn')!;
       const isActive = career.sponsorIds.includes(sponsor.id);
       const unlocked = isSponsorUnlocked(sponsor, career);

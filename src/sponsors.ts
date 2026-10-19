@@ -1,16 +1,19 @@
 import { makeRng } from './rng';
+import { DIFFICULTY_PRESETS, Difficulty } from './difficulty';
 import type { CareerState } from './career';
 
 // ============================================================
-// SPONSORS (fake companies): 100 partners paying 0.5 to 5 M€ per
-// race. You sign ONE at a time; the best ones demand results (the
-// top sponsor requires having won with P1, the worst just P20).
+// SPONSORS (fake companies): 150 partners (spec 009) ranked from
+// worst to best paid. The best ones demand results (the top sponsor
+// requires having won with P1, the worst just P20). How much each
+// rank actually pays depends on the save's difficulty preset
+// (spec 016); the ranking and demands are identical in all three.
 // ============================================================
 
 export interface Sponsor {
-  id: number; // 0 (worst paid) .. 99 (best paid)
+  id: number; // 0 (worst paid) .. 149 (best paid)
   name: string;
-  payPerRace: number; // M€
+  payFrac: number; // 0 (worst paid) .. 1 (best paid), difficulty scales it
   requiredPosition: number; // best result needed to sign
 }
 
@@ -42,13 +45,23 @@ export const ALL_SPONSORS: Sponsor[] = (() => {
     return {
       id: i,
       name,
-      // spec 009: 0.3..3.0 M€/race (was 0.5..5.0) — sponsorship funds
-      // less of the upgrade bill now.
-      payPerRace: Math.round((0.3 + (i / (SPONSOR_COUNT - 1)) * 2.7) * 10) / 10,
+      // Spec 016: the rank is stored as a 0..1 fraction; the M€ a
+      // rank pays come from the save's difficulty preset (see
+      // sponsorPayPerRace). Spec 009's 0.3..3.0 M€ is 'hard'.
+      payFrac: i / (SPONSOR_COUNT - 1),
       requiredPosition: Math.max(1, Math.round(20 - (i / (SPONSOR_COUNT - 1)) * 19)),
     };
   });
 })();
+
+// Spec 016: M€ per race of a sponsor under one difficulty preset,
+// rounded to 0.1 like the old fixed field was.
+export function sponsorPayPerRace(sponsor: Sponsor, difficulty: Difficulty): number {
+  const preset = DIFFICULTY_PRESETS[difficulty];
+  return (
+    Math.round((preset.sponsorPayMin + sponsor.payFrac * (preset.sponsorPayMax - preset.sponsorPayMin)) * 10) / 10
+  );
+}
 
 export function getSponsor(id: number | null): Sponsor | undefined {
   if (id === null) return undefined;

@@ -2,6 +2,13 @@ import { RaceState } from './types';
 import { simulationTick } from './simulation';
 import { buildTestRaceState } from './test-grid';
 import { LATERAL_MAX, lateralTarget, stepLateral } from './racing-line';
+import {
+  DIFFICULTY_ORDER,
+  DIFFICULTY_PRESETS,
+  difficultyOrHard,
+} from './difficulty';
+import { ALL_SPONSORS, SPONSOR_COUNT, sponsorPayPerRace } from './sponsors';
+import { prizeForPosition } from './prize-table';
 
 // ============================================================
 // TEST HARNESS (Phase 1): runs the simulation head-less (no UI)
@@ -83,6 +90,56 @@ function racingLineSelfCheck(lines: string[]): void {
     failures === 0
       ? 'Lateral check: acotado OK | batallas OK | amarilla OK | convergencia OK'
       : 'Lateral check: ' + failures + ' FALLOS'
+  );
+}
+
+// Acceptance check 4 (spec 016): the difficulty presets hold their
+// invariants — 'hard' replicates spec 009, easier tiers are strictly
+// richer, sponsor pay endpoints match each preset and the prize
+// table scales; unknown values fall back to 'hard'.
+function difficultySelfCheck(lines: string[]): void {
+  let failures = 0;
+  const expect = (ok: boolean, what: string): void => {
+    if (!ok) {
+      failures++;
+      lines.push('FAIL dificultad: ' + what);
+    }
+  };
+
+  const [easy, normal] = DIFFICULTY_ORDER;
+  expect(DIFFICULTY_ORDER.length === 3, 'tres presets');
+  expect(
+    DIFFICULTY_PRESETS.easy.initialBudget > DIFFICULTY_PRESETS.normal.initialBudget &&
+      DIFFICULTY_PRESETS.normal.initialBudget > DIFFICULTY_PRESETS.hard.initialBudget,
+    'presupuesto easy > normal > hard'
+  );
+  expect(
+    DIFFICULTY_PRESETS[easy].prizeScale > DIFFICULTY_PRESETS[normal].prizeScale &&
+      DIFFICULTY_PRESETS[normal].prizeScale > DIFFICULTY_PRESETS.hard.prizeScale,
+    'escala de premios decreciente'
+  );
+  // 'hard' IS spec 009, constant by constant.
+  expect(DIFFICULTY_PRESETS.hard.initialBudget === 200, 'hard: 200 M€ (009)');
+  expect(DIFFICULTY_PRESETS.hard.sponsorPayMin === 0.3 && DIFFICULTY_PRESETS.hard.sponsorPayMax === 3.0, 'hard: 0,3..3,0 M€ (009)');
+  expect(DIFFICULTY_PRESETS.hard.prizeScale === 1, 'hard: premios x1 (009)');
+  // Sponsor pay endpoints for every tier.
+  const worst = ALL_SPONSORS[0];
+  const best = ALL_SPONSORS[SPONSOR_COUNT - 1];
+  for (const id of DIFFICULTY_ORDER) {
+    expect(sponsorPayPerRace(worst, id) === DIFFICULTY_PRESETS[id].sponsorPayMin, id + ': peor patrocinador = min');
+    expect(sponsorPayPerRace(best, id) === DIFFICULTY_PRESETS[id].sponsorPayMax, id + ': mejor patrocinador = max');
+  }
+  expect(sponsorPayPerRace(worst, 'hard') === 0.3 && sponsorPayPerRace(best, 'easy') === 5, '009 duro abajo, pre-009 facil arriba');
+  // Prize scale math (rounded to whole M€).
+  expect(prizeForPosition(1) === 100 && prizeForPosition(1, 1.5) === 150, 'P1: 100 -> 150 en facil');
+  expect(prizeForPosition(5, 1.25) === 56, 'P5 normal: 45 x 1,25 = 56');
+  // Defensive fallback.
+  expect(difficultyOrHard(undefined) === 'hard' && difficultyOrHard('turbo') === 'hard' && difficultyOrHard('easy') === 'easy', 'default/legacy = hard');
+
+  lines.push(
+    failures === 0
+      ? 'Difficulty check: presets OK | extremos OK | premios OK | default hard OK'
+      : 'Difficulty check: ' + failures + ' FALLOS'
   );
 }
 
@@ -191,6 +248,9 @@ export function runTestHarness(): string {
 
   // Acceptance check 3 (spec 012): lateral racing-line invariants.
   racingLineSelfCheck(lines);
+
+  // Acceptance check 4 (spec 016): difficulty preset invariants.
+  difficultySelfCheck(lines);
 
   return lines.join('\n');
 }

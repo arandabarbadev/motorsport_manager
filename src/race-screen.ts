@@ -10,6 +10,7 @@ import {
   simulationTick,
 } from './simulation';
 import { prizeForPosition } from './prize-table';
+import { DIFFICULTY_PRESETS } from './difficulty';
 import { getOrCreateCareer, saveCareer } from './career';
 import { getTrackById } from './tracks-generator';
 import { onThemeChange, themeButtonLabel, toggleTheme } from './theme';
@@ -934,16 +935,19 @@ export function createRaceScreen(
   // Spec 011: quali pays no prize, sprints pay a quarter of the table,
   // and only the RACE settles sponsors, salaries and rent.
   function awardPrizesAndShowResults(): void {
+    const career = getOrCreateCareer(0);
     const playerResults = getFinalClassification(state)
       .filter((c) => c.isPlayerControlled)
       .map((c) => ({
         position: c.position,
         name: driverById(c.driverId).name,
-        prize: Math.round(prizeForPosition(c.position) * eventPrizeFactor(event)),
+        // Spec 016: the prize table scaled by this save's difficulty.
+        prize: Math.round(
+          prizeForPosition(c.position, DIFFICULTY_PRESETS[career.difficulty].prizeScale) *
+            eventPrizeFactor(event)
+        ),
       }));
     const totalPrize = playerResults.reduce((sum, r) => sum + r.prize, 0);
-
-    const career = getOrCreateCareer(0);
     let nextLabel = '';
     // Replay guard: an event already recorded this season pays nothing
     // and is not recorded twice — but season progress NEVER freezes.

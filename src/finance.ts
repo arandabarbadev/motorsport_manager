@@ -1,5 +1,5 @@
 import type { CareerState } from './career';
-import { getSponsor } from './sponsors';
+import { getSponsor, sponsorPayPerRace } from './sponsors';
 
 // ============================================================
 // RACE FINANCE: income per race (prizes + sponsor) minus the
@@ -22,14 +22,15 @@ export interface RaceFinance {
 }
 
 // Sum of the signed sponsors' pay with the commercial staff bonus
-// (+5% per level). Up to MAX_ACTIVE_SPONSORS at once.
+// (+5% per level). Up to MAX_ACTIVE_SPONSORS at once. Spec 016: each
+// sponsor pays according to THIS save's difficulty preset.
 export function sponsorIncome(career: CareerState): number {
   if (career.sponsorIds.length === 0) return 0;
   const bonus = 1 + 0.05 * (career.staff.commercial - 1);
   let total = 0;
   for (const id of career.sponsorIds) {
     const sponsor = getSponsor(id);
-    if (sponsor) total += sponsor.payPerRace;
+    if (sponsor) total += sponsorPayPerRace(sponsor, career.difficulty);
   }
   return Math.round(total * bonus * 10) / 10;
 }

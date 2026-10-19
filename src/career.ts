@@ -1,6 +1,7 @@
 import { INITIAL_BUDGET } from './roster';
 import { ALL_TRACKS } from './tracks-generator';
 import { activeCareerKey } from './slots';
+import { difficultyOrHard, Difficulty } from './difficulty';
 import type { RaceStandingEntry } from './championship';
 import type { WeekendEvent } from './types';
 
@@ -38,6 +39,10 @@ export interface SeasonResult {
 export interface CareerState {
   version: 1;
   budget: number;
+  // Spec 016: the economic difficulty chosen when THIS save was
+  // created (presets in difficulty.ts). Legacy saves migrate to
+  // 'hard' — the spec-009 tuning they were balanced on.
+  difficulty: Difficulty;
   calendar: string[];
   currentRaceIndex: number;
   seasonNumber: number; // starts at 1
@@ -66,10 +71,14 @@ function migrateTrackId(id: string): string | null {
   return ALL_TRACKS.find((t) => t.name === name)?.id ?? null;
 }
 
-export function createDefaultCareer(budget: number = INITIAL_BUDGET): CareerState {
+export function createDefaultCareer(
+  budget: number = INITIAL_BUDGET,
+  difficulty: Difficulty = 'hard'
+): CareerState {
   return {
     version: 1,
     budget,
+    difficulty,
     calendar: ALL_TRACKS.map((t) => t.id),
     currentRaceIndex: 0,
     seasonNumber: 1,
@@ -128,6 +137,9 @@ export function loadCareer(): CareerState | null {
     const merged: CareerState = {
       version: 1,
       budget: parsed.budget,
+      // Spec 016: pre-016 saves (and anything corrupt) read as the
+      // tuning they were balanced on.
+      difficulty: difficultyOrHard(parsed.difficulty),
       calendar: newCalendar,
       currentRaceIndex: Math.min(
         Math.max(typeof parsed.currentRaceIndex === 'number' ? parsed.currentRaceIndex : 0, 0),
@@ -155,6 +167,10 @@ export function loadCareer(): CareerState | null {
 
 // Migration-friendly creation: if there is no career save yet, start
 // from fallbackBudget so nothing the player already spent is lost.
-export function getOrCreateCareer(fallbackBudget: number = INITIAL_BUDGET): CareerState {
-  return loadCareer() ?? createDefaultCareer(fallbackBudget);
+// Spec 016: a fresh career carries the slot's chosen difficulty.
+export function getOrCreateCareer(
+  fallbackBudget: number = INITIAL_BUDGET,
+  difficulty: Difficulty = 'hard'
+): CareerState {
+  return loadCareer() ?? createDefaultCareer(fallbackBudget, difficulty);
 }

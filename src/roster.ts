@@ -138,13 +138,15 @@ function generateRivalEntry(index: number, usedNames: Set<string>): TeamEntry {
 }
 
 // First open: player team with editable placeholders + generated rivals.
-export function createDefaultRoster(): Roster {
+// Spec 016: the starting budget comes from the slot's difficulty
+// preset (default = the spec-009 hard economy).
+export function createDefaultRoster(budget: number = INITIAL_BUDGET): Roster {
   const usedNames = new Set<string>();
   const player: TeamEntry = {
     team: {
       id: 'player-team',
       name: 'Mi Equipo',
-      budget: INITIAL_BUDGET,
+      budget,
       color: '#e10600',
     },
     drivers: [0, 1].map((seat) => ({

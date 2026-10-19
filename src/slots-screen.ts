@@ -8,7 +8,10 @@ import {
   slotSummary,
   setSlotName,
   deleteSlot,
+  getSlotDifficulty,
+  setSlotDifficulty,
 } from './slots';
+import { DIFFICULTY_ORDER, DIFFICULTY_PRESETS } from './difficulty';
 import { themeButtonLabel, toggleTheme } from './theme';
 import { scheduleCloudSync } from './cloud';
 
@@ -86,9 +89,43 @@ export function createSlotsScreen(container: HTMLElement, onPlay: () => void): v
       const meta = document.createElement('div');
       meta.className = 'slot-meta';
       meta.textContent = summary
-        ? `Temporada ${summary.season} · Ronda ${summary.round}/${summary.rounds} · ${summary.budget} M€`
+        ? `Temporada ${summary.season} · Ronda ${summary.round}/${summary.rounds} · ${summary.budget} M€ · ${DIFFICULTY_PRESETS[summary.difficulty].label}`
         : 'Vacía';
       card.appendChild(meta);
+
+      // Spec 016: the difficulty an empty slot will be created with.
+      // Kept in localStorage (slot-diff) and baked into the career by
+      // the team screen when "Crear" is pressed.
+      if (!exists) {
+        const picker = document.createElement('div');
+        picker.className = 'slot-diff';
+        const label = document.createElement('span');
+        label.className = 'slot-diff-label';
+        label.textContent = 'Dificultad';
+        const btns = document.createElement('div');
+        btns.className = 'slot-diff-btns';
+        let selected = getSlotDifficulty(slot);
+        const hint = document.createElement('div');
+        hint.className = 'slot-diff-hint';
+        hint.textContent = DIFFICULTY_PRESETS[selected].hint;
+        for (const id of DIFFICULTY_ORDER) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn slot-diff-btn' + (id === selected ? ' active' : '');
+          btn.textContent = DIFFICULTY_PRESETS[id].label;
+          btn.addEventListener('click', () => {
+            selected = id;
+            setSlotDifficulty(slot, id);
+            hint.textContent = DIFFICULTY_PRESETS[id].hint;
+            btns
+              .querySelectorAll('.slot-diff-btn')
+              .forEach((b) => b.classList.toggle('active', b === btn));
+          });
+          btns.appendChild(btn);
+        }
+        picker.append(label, btns, hint);
+        card.appendChild(picker);
+      }
 
       const actions = document.createElement('div');
       actions.className = 'slot-actions';
