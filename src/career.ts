@@ -117,6 +117,7 @@ export function loadCareer(): CareerState | null {
     // circuits that no longer exist) and re-ordered by the new
     // calendar, and the current round index is kept (clamped).
     const newCalendar = ALL_TRACKS.map((t) => t.id);
+    const newCalendarSet = new Set(newCalendar);
     const migratedResults: SeasonResult[] = (
       Array.isArray(parsed.seasonResults) ? parsed.seasonResults : []
     )
@@ -130,7 +131,11 @@ export function loadCareer(): CareerState | null {
             }
           : null
       )
-      .filter((r): r is SeasonResult => r !== null && r.trackId !== null)
+      // Spec 018: results at retired circuits (Kyalami, Le Mans,
+      // Nürburgring, Estoril) are dropped like Barcelona was in 010 —
+      // otherwise they would still count towards isSeasonComplete and
+      // show up in the season screen with no track to point at.
+      .filter((r): r is SeasonResult => r !== null && r.trackId !== null && newCalendarSet.has(r.trackId))
       .sort(
         (a, b) => newCalendar.indexOf(a.trackId) - newCalendar.indexOf(b.trackId)
       );

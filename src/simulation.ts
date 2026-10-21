@@ -46,6 +46,47 @@ const YELLOW_PACE_FACTOR = 0.55;           // everyone slows behind the yellow
 // wetSkill suffer less.
 const WEATHER_CHANGE_PER_SEC = 1 / 1500;
 
+// Spec 018: rubber must FIT the weather. The base weather penalty is
+// scaled down for the right compound, and a flat mismatch penalty is
+// added for the wrong one — the intermediate tyre is the light-rain
+// sweet spot (slicks slip, wets overheat), exactly one tier below the
+// full wet in heavy rain. In the dry the slick numbers are IDENTICAL
+// to the pre-018 engine (base 0, extra 0).
+const BASE_WEATHER_PENALTY: Record<Weather, number> = {
+  dry: 0,
+  lightRain: 0.05,
+  heavyRain: 0.15,
+};
+const RUBBER_SCALE: Record<TyreCompound, Record<Weather, number>> = {
+  soft: { dry: 1, lightRain: 1, heavyRain: 1 },
+  medium: { dry: 1, lightRain: 1, heavyRain: 1 },
+  hard: { dry: 1, lightRain: 1, heavyRain: 1 },
+  inter: { dry: 0, lightRain: 0.15, heavyRain: 0.55 },
+  wet: { dry: 0, lightRain: 0.5, heavyRain: 0.15 },
+};
+const RUBBER_EXTRA: Record<TyreCompound, Record<Weather, number>> = {
+  soft: { dry: 0, lightRain: 0.03, heavyRain: 0.1 },
+  medium: { dry: 0, lightRain: 0.03, heavyRain: 0.1 },
+  hard: { dry: 0, lightRain: 0.03, heavyRain: 0.1 },
+  inter: { dry: 0.05, lightRain: 0, heavyRain: 0.03 },
+  wet: { dry: 0.08, lightRain: 0.01, heavyRain: 0 },
+};
+// Tyre wear reacts the same way: the wrong rubber grains or overheats.
+const COMPOUND_WEAR: Record<TyreCompound, number> = {
+  soft: 1.4,
+  medium: 1.0,
+  hard: 0.7,
+  inter: 1.1,
+  wet: 1.1,
+};
+const WEATHER_WEAR_SCALE: Record<TyreCompound, Record<Weather, number>> = {
+  soft: { dry: 1, lightRain: 1.15, heavyRain: 1.3 },
+  medium: { dry: 1, lightRain: 1.15, heavyRain: 1.3 },
+  hard: { dry: 1, lightRain: 1.15, heavyRain: 1.3 },
+  inter: { dry: 1.5, lightRain: 0.85, heavyRain: 1 },
+  wet: { dry: 1.9, lightRain: 0.95, heavyRain: 0.75 },
+};
+
 // Fallbacks if an id is missing from the roster (keeps the sim running).
 const FALLBACK_DRIVER: Driver = {
   id: 'fallback-driver',
@@ -106,10 +147,12 @@ function computePace(
 ): number {
   const tyrePenalty =
     (car.tyre.wear / 100) * track.tyreDegradationFactor * TYRE_GRIP_LOSS_FACTOR;
-  // Rain hurts less when the driver is good on wet (wetSkill 0-100).
+  // Rain hurts less when the driver is good on wet (wetSkill 0-100),
+  // and almost not at all on the right rubber for the conditions.
   const wetFactor = 1.15 - driver.wetSkill / 200; // 0.65..1.15
   const weatherPenalty =
-    weather === 'dry' ? 0 : weather === 'lightRain' ? 0.05 * wetFactor : 0.15 * wetFactor;
+    BASE_WEATHER_PENALTY[weather] * RUBBER_SCALE[car.tyre.compound][weather] * wetFactor +
+    RUBBER_EXTRA[car.tyre.compound][weather];
   const noiseRange = ((100 - driver.consistency) / 100) * 0.02;
   const noise = (Math.random() * 2 - 1) * noiseRange;
   const basePaceFactor = (driver.pace / 100) * 0.6 + (carRating(spec) / 100) * 0.4;
@@ -117,11 +160,9 @@ function computePace(
   return Math.max(0.05, basePaceFactor - tyrePenalty - weatherPenalty + noise);
 }
 
-function computeWearRate(car: RaceCarState, track: Track): number {
+function computeWearRate(car: RaceCarState, track: Track, weather: Weather): number {
   const compoundFactor =
-    car.tyre.compound === 'soft' ? 1.4 :
-    car.tyre.compound === 'medium' ? 1.0 :
-    car.tyre.compound === 'hard' ? 0.7 : 1.1;
+    COMPOUND_WEAR[car.tyre.compound] * WEATHER_WEAR_SCALE[car.tyre.compound][weather];
   // Wear per simulated second (a ~100-130s lap => ~2.5-4.5%/lap depending
   // on compound and track degradation).
   return compoundFactor * track.tyreDegradationFactor * WEAR_PER_SEC_BASE;
@@ -224,7 +265,7 @@ export function simulationTick(state: RaceState): void {
         // stops moving for the rest of this tick.
         if (startPitStop(state, car, events)) break;
       }
-      car.tyre.wear = Math.min(100, car.tyre.wear + computeWearRate(car, state.track));
+      car.tyre.wear = Math.min(100, car.tyre.wear + computeWearRate(car, state.track, state.weather));
       car.tyre.lapsOnTyre += pace / REFERENCE_LAP_SEC;
     }
   }
@@ -334,11 +375,14 @@ function runPitStopAI(state: RaceState): void {
     const lapsRemaining = state.track.totalLaps - car.currentLap;
     if (lapsRemaining < MIN_LAPS_LEFT_TO_PIT) continue;
 
-    // Weather strategy: wrong rubber for the conditions forces a stop
-    // (slicks under rain, wets on a drying track).
+    // Weather strategy: the rubber must FIT the conditions — slicks
+    // under rain, inters/wets on a dry track, both force a stop (spec
+    // 018: light rain is intermediate weather, heavy rain admits both
+    // I and W, the preferred stop compound follows the weather).
     const wrongTyresForWeather =
-      (state.weather !== 'dry' && car.tyre.compound !== 'wet') ||
-      (state.weather === 'dry' && car.tyre.compound === 'wet');
+      state.weather === 'dry'
+        ? car.tyre.compound === 'inter' || car.tyre.compound === 'wet'
+        : car.tyre.compound === 'soft' || car.tyre.compound === 'medium' || car.tyre.compound === 'hard';
     if (!wrongTyresForWeather && car.tyre.wear < MIN_TYRE_WEAR_TO_PIT) continue;
 
     const carBehind = state.cars.find((c) => c.position === car.position + 1);
@@ -357,11 +401,14 @@ function runPitStopAI(state: RaceState): void {
     if (wrongTyresForWeather || score > AI_PIT_SCORE_THRESHOLD || car.tyre.wear >= FORCE_PIT_WEAR) {
       queuePitCommand({
         carDriverId: car.driverId,
-        // Wet compound whenever it rains; dry strategy otherwise.
+        // Spec 018: light rain mounts the intermediate, heavy rain the
+        // wet; dry goes back to the slick strategy.
         newCompound:
           state.weather === 'dry'
             ? chooseCompound(lapsRemaining, state.track.totalLaps)
-            : 'wet',
+            : state.weather === 'lightRain'
+              ? 'inter'
+              : 'wet',
         requestedAtTick: state.currentTick,
       });
     }

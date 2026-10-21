@@ -276,6 +276,10 @@
   color: var(--text);
 }
 
+.tyre.inter {
+  color: #43b02a;
+}
+
 .tyre.wet {
   color: var(--accent);
 }

@@ -43,7 +43,17 @@ const COMPOUND_LABEL: Record<TyreCompound, string> = {
   soft: 'S',
   medium: 'M',
   hard: 'H',
+  inter: 'I',
   wet: 'W',
+};
+
+// Full names for the pit buttons' tooltips (spec 018: intermedios).
+const COMPOUND_TITLE: Record<TyreCompound, string> = {
+  soft: 'Blando',
+  medium: 'Medio',
+  hard: 'Duro',
+  inter: 'Intermedios (lluvia ligera)',
+  wet: 'Lluvia (diluvio)',
 };
 
 const WEATHER_LABEL: Record<Weather, string> = {
@@ -205,6 +215,9 @@ export function createRaceScreen(
   let clockSec = 0;
   let finished = false;
   let prizeAwarded = false; // prize money is added exactly once per race
+  // Spec 018: last weather seen by the tick loop — a change triggers
+  // the rain notice (the rain must announce itself).
+  let lastWeather: Weather = 'dry';
 
   // Race event feedback (Phase 7): brief highlights + floating texts,
   // driven ONLY by the engine's per-tick raceEvents list.
@@ -340,6 +353,7 @@ export function createRaceScreen(
     pendingPit = new Set<string>();
     clockSec = 0;
     finished = false;
+    lastWeather = state.weather;
     lastTickAt = performance.now();
     overlayEl.classList.add('hidden');
     overlaySeasonBtn.classList.add('hidden');
@@ -369,6 +383,7 @@ export function createRaceScreen(
         'Tus paradas se ordenan en "Mis boxes": la goma que llevas está al lado de los botones.',
         'La tabla muestra el hueco de los 20; la goma y su desgaste, solo de tus pilotos.',
         'Cada círculo lleva su dorsal pintado dentro: identifícalos sin depender de los colores.',
+        'Si cambia el tiempo salta un aviso: I (intermedios) para lluvia ligera, W para la fuerte.',
       ]
     );
   }
@@ -494,9 +509,14 @@ export function createRaceScreen(
     const w = trackLayer.width;
     const h = trackLayer.height;
     layerCtx.clearRect(0, 0, w, h);
-    // Spec 014: wider road (7.5% of the canvas' short side) so the
-    // lateral roam of the cars fits inside the asphalt.
-    const roadWidth = Math.max(12, 0.075 * Math.min(w, h));
+    // Spec 018: thinner road (6% of the canvas' short side) so
+    // parallel sections read as separate ribbons (the lateral roam is
+    // a fraction of the width, so it scales along), and a WHITE edge
+    // line around the asphalt with a dark halo outside — the border
+    // says where the track ends in both themes.
+    const roadWidth = Math.max(10, 0.06 * Math.min(w, h));
+    const edgeWidth = Math.max(2, roadWidth * 0.09);
+    const haloWidth = Math.max(2, roadWidth * 0.06);
     roadWidthPx = roadWidth; // lateral offsets are a fraction of it
     // Track colors follow the active theme (light/dark).
     const cssVar = (name: string): string =>
@@ -518,7 +538,8 @@ export function createRaceScreen(
       layerCtx.stroke();
     };
 
-    strokeLoop(roadWidth + Math.max(2, roadWidth * 0.12), cssVar('--track-border'));
+    strokeLoop(roadWidth + edgeWidth * 2 + haloWidth, cssVar('--track-halo'));
+    strokeLoop(roadWidth + edgeWidth * 2, '#ffffff'); // the white edge itself
     strokeLoop(roadWidth, cssVar('--track-asphalt'));
     // Spec 014: no center guide line anymore — the cars roam the
     // full width, a painted centerline read as a slot-car rail.
@@ -568,6 +589,19 @@ export function createRaceScreen(
     }
     snapshotShadow();
     simulationTick(state);
+    // Spec 018: a weather change gets its own notice card, with the
+    // rubber the conditions call for — no more guessing from the
+    // rivals' pit stops.
+    if (state.weather !== lastWeather) {
+      lastWeather = state.weather;
+      if (state.weather === 'lightRain') {
+        notices.notify({ kind: 'info', title: 'Lluvia ligera', body: 'Goma intermedia (I) recomendada' });
+      } else if (state.weather === 'heavyRain') {
+        notices.notify({ kind: 'alert', title: 'Lluvia fuerte', body: 'Goma de lluvia (W) recomendada' });
+      } else {
+        notices.notify({ kind: 'success', title: 'Escampa', body: 'La pista se seca: gomas de seco' });
+      }
+    }
     consumeRaceEvents(state.raceEvents);
     clockSec += state.simTimeMultiplier;
     lastTickAt = performance.now();
@@ -852,7 +886,7 @@ export function createRaceScreen(
   function buildPitPanel(): void {
     pitPanel.innerHTML = '<h2 class="hud-title">Mis boxes</h2>';
     pitBoxes.length = 0;
-    const compounds: TyreCompound[] = ['soft', 'medium', 'hard', 'wet'];
+    const compounds: TyreCompound[] = ['soft', 'medium', 'hard', 'inter', 'wet'];
     for (const car of state.cars.filter((c) => c.isPlayerControlled)) {
       const box = document.createElement('div');
       box.className = 'pit-box';
@@ -874,7 +908,7 @@ export function createRaceScreen(
         btn.type = 'button';
         btn.className = 'btn pit-btn';
         btn.textContent = COMPOUND_LABEL[compound];
-        btn.title = compound;
+        btn.title = COMPOUND_TITLE[compound];
         btn.addEventListener('click', () => {
           // Player command: queued NOW, executed when the car crosses
           // the start/finish line (never mid-lap).

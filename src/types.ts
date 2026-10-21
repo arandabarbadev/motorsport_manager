@@ -4,7 +4,9 @@
 // la IA de rivales y el render. No dependen de React ni de Canvas.
 // ============================================================
 
-export type TyreCompound = 'soft' | 'medium' | 'hard' | 'wet';
+// Spec 018: 'inter' is the intermediate rubber for light rain —
+// faster than slicks on a damp track and than wets on a drying one.
+export type TyreCompound = 'soft' | 'medium' | 'hard' | 'inter' | 'wet';
 export type CarStatus = 'racing' | 'inPit' | 'dnf';
 // Weekend event (spec 011): each calendar round is played as
 // quali -> sprint1 -> sprint2 -> race, each one seeding the next grid.

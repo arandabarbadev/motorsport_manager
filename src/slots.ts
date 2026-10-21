@@ -174,7 +174,7 @@ export function slotSummary(slot: SlotId): SlotSummary | null {
       budget: number;
       difficulty: unknown;
     }>;
-    const rounds = Array.isArray(career.calendar) ? career.calendar.length : 24;
+    const rounds = Array.isArray(career.calendar) ? career.calendar.length : 20;
     return {
       season: typeof career.seasonNumber === 'number' ? career.seasonNumber : 1,
       round: Math.min(

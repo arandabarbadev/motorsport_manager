@@ -1,6 +1,7 @@
 import { RaceState } from './types';
-import { simulationTick } from './simulation';
+import { resetPitCommands, simulationTick } from './simulation';
 import { buildTestRaceState } from './test-grid';
+import { ALL_TRACKS } from './tracks-generator';
 import { LATERAL_MAX, lateralTarget, stepLateral } from './racing-line';
 import {
   DIFFICULTY_ORDER,
@@ -146,6 +147,119 @@ function difficultySelfCheck(lines: string[]): void {
 const pad = (s: string, n: number): string => (s.length >= n ? s : s + ' '.repeat(n - s.length));
 const padL = (s: string, n: number): string => (s.length >= n ? s : ' '.repeat(n - s.length) + s);
 
+// Acceptance check 5 (spec 018): 20 season tracks, real Jerez among
+// them, and de-clashed layouts — sections of the lap that are not the
+// same corner keep enough gap that the road ribbons read separately.
+function tracksSelfCheck(lines: string[]): void {
+  let failures = 0;
+  const expect = (ok: boolean, what: string): void => {
+    if (!ok) {
+      failures++;
+      lines.push('FAIL trazados: ' + what);
+    }
+  };
+
+  expect(ALL_TRACKS.length === 20, '20 circuitos (son ' + ALL_TRACKS.length + ')');
+  expect(ALL_TRACKS.some((t) => t.id === 'gp-jerez'), 'Jerez presente');
+  const has = (slug: string): boolean => ALL_TRACKS.some((t) => t.id === 'gp-' + slug);
+  expect(!has('kyalami') && !has('lemans') && !has('nurburgring') && !has('estoril'), 'retirados fuera');
+
+  // Minimum gap between non-neighbor sections, in two buckets: FOLDS
+  // (6-10% of the lap apart — esses and snake lanes, opened softly)
+  // and PARALLELS (over 10% — must fully separate). Below 6% it is
+  // the same corner, not a clash.
+  const minSectionGap = (
+    path: { x: number; y: number }[],
+    fromArcFrac: number,
+    toArcFrac: number
+  ): number => {
+    const n = path.length;
+    const cum: number[] = [0];
+    for (let i = 1; i <= n; i++) {
+      cum.push(cum[i - 1] + Math.hypot(path[i % n].x - path[i - 1].x, path[i % n].y - path[i - 1].y));
+    }
+    const total = cum[n];
+    let min = 1;
+    for (let a = 0; a < n; a++) {
+      for (let b = a + 1; b < n; b++) {
+        const arc = Math.min(cum[b] - cum[a], total - (cum[b] - cum[a]));
+        if (arc < total * fromArcFrac || arc >= total * toArcFrac) continue;
+        const d = Math.hypot(path[a].x - path[b].x, path[a].y - path[b].y);
+        if (d < min) min = d;
+      }
+    }
+    return min;
+  };
+  const gaps = ALL_TRACKS.map((t) => ({
+    name: t.name,
+    fold: minSectionGap(t.path, 0.06, 0.1),
+    parallel: minSectionGap(t.path, 0.1, 1),
+  })).sort((a, b) => a.fold - b.fold);
+  // Folds peel apart at least a bit (a glued blob stays glued forever);
+  // parallels properly separate. Suzuka's figure-8 CROSSES ITSELF
+  // (the bridge) — the crossing arms sit ~8% of the lap apart, so its
+  // fold number is a crossing by design, not a glued blob.
+  expect(
+    gaps.every((g) => g.name === 'Suzuka' || g.fold >= 0.02),
+    'plegamientos >= 0.02 (peor ' + gaps[0].name + ' ' + gaps[0].fold.toFixed(3) + ')'
+  );
+  expect(
+    gaps.every((g) => g.parallel >= 0.05),
+    'paralelos >= 0.05 (peor ' + [...gaps].sort((a, b) => a.parallel - b.parallel)[0].name + ' ' +
+      Math.min(...gaps.map((g) => g.parallel)).toFixed(3) + ')'
+  );
+  const worstFold = gaps.filter((g) => g.name !== 'Suzuka')[0];
+  const suzuka = gaps.find((g) => g.name === 'Suzuka')!;
+  const worstParallel = [...gaps].sort((a, b) => a.parallel - b.parallel)[0];
+
+  lines.push(
+    failures === 0
+      ? 'Tracks check: 20 OK | Jerez OK | retirados fuera OK | separacion OK (peor pliegue ' +
+          worstFold.name + ' ' + worstFold.fold.toFixed(3) + ', puente Suzuka ' + suzuka.fold.toFixed(3) +
+          ', peor paralelo ' + worstParallel.name + ' ' + worstParallel.parallel.toFixed(3) + ')'
+      : 'Tracks check: ' + failures + ' FALLOS'
+  );
+}
+
+// Acceptance check 6 (spec 018): rain strategy. With the weather
+// forced, the rival AI must swap to the rubber the conditions call
+// for — intermediates in light rain, wets in heavy rain (the wrong
+// rubber forces the stop, so the check does not depend on luck).
+function weatherSelfCheck(lines: string[]): void {
+  let failures = 0;
+  const expect = (ok: boolean, what: string): void => {
+    if (!ok) {
+      failures++;
+      lines.push('FAIL lluvia: ' + what);
+    }
+  };
+
+  const runWetRace = (weather: 'lightRain' | 'heavyRain'): boolean => {
+    resetPitCommands();
+    const state = buildTestRaceState();
+    state.weather = weather;
+    state.weatherCanChange = false; // the strategy test keeps its weather
+    state.simTimeMultiplier = 10;
+    for (let i = 0; i < 400; i++) {
+      simulationTick(state);
+      const mounted = state.cars.filter(
+        (c) => !c.isPlayerControlled && c.tyre.compound === (weather === 'lightRain' ? 'inter' : 'wet')
+      ).length;
+      if (mounted >= 5) return true; // plenty of the field has swapped
+    }
+    return false;
+  };
+  expect(runWetRace('lightRain'), 'lluvia ligera: la IA monta intermedios');
+  expect(runWetRace('heavyRain'), 'lluvia fuerte: la IA monta lluvia');
+  resetPitCommands();
+
+  lines.push(
+    failures === 0
+      ? 'Weather check: IA a intermedios en ligera OK | IA a lluvia en fuerte OK'
+      : 'Weather check: ' + failures + ' FALLOS'
+  );
+}
+
 export function runTestHarness(): string {
   const state: RaceState = buildTestRaceState();
 
@@ -251,6 +365,10 @@ export function runTestHarness(): string {
 
   // Acceptance check 4 (spec 016): difficulty preset invariants.
   difficultySelfCheck(lines);
+
+  // Acceptance check 5 (spec 018): tracks and 6 (spec 018): rain.
+  tracksSelfCheck(lines);
+  weatherSelfCheck(lines);
 
   return lines.join('\n');
 }

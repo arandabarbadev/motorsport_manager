@@ -13,11 +13,12 @@ const path = require('path');
 // Calendar order: file name (repo id) -> season round name.
 // Spec 010 (2026-10-11): real-season order, Barcelona removed, five
 // famous circuits added (Nürburgring, Le Mans, Estoril, Jerez, Kyalami).
-// Le Mans (fr-1967) and Jerez (es-1986) were extracted from live OSM
-// data (relation 2725877 and way 831985059) with the same pipeline.
+// Spec 018 (2026-10-19): only real F1 rounds stay — plus Jerez, the one
+// classic Rafa keeps. Kyalami, Le Mans, Nürburgring and Estoril removed.
+// Jerez's geojson was rebuilt from the actual raceway ways (see
+// tools/assemble-jerez.js); the old one was the sports_centre perimeter.
 const CALENDAR = [
   ['au-1953', 'Melbourne'],
-  ['za-1961', 'Kyalami'],
   ['sa-2021', 'Yeda'],
   ['jp-1962', 'Suzuka'],
   ['az-2016', 'Bakú'],
@@ -26,13 +27,10 @@ const CALENDAR = [
   ['mc-1929', 'Mónaco'],
   ['ca-1978', 'Montreal'],
   ['gb-1948', 'Silverstone'],
-  ['fr-1967', 'Le Mans'],
-  ['de-1927', 'Nürburgring'],
   ['be-1925', 'Spa'],
   ['hu-1986', 'Hungría'],
   ['nl-1948', 'Zandvoort'],
   ['it-1922', 'Monza'],
-  ['pt-1972', 'Estoril'],
   ['sg-2008', 'Singapur'],
   ['es-1986', 'Jerez'],
   ['us-2012', 'Austin'],

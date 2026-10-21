@@ -23,7 +23,7 @@
   --red: #da3633;
   --btn-bg: #21262d;
   --btn-hover: #30363d;
-  --track-border: #1b2129;
+  --track-halo: rgba(0, 0, 0, 0.45);
   --track-asphalt: #30363d;
   --track-start: #e6edf3;
   --car-outline: rgba(0, 0, 0, 0.55);
@@ -48,7 +48,7 @@
   --red: #cf222e;
   --btn-bg: #f0f3f6;
   --btn-hover: #e4e8ec;
-  --track-border: #b6bec7;
+  --track-halo: rgba(31, 35, 40, 0.35);
   --track-asphalt: #dfe4e9;
   --track-start: #1f2328;
   --car-outline: rgba(31, 35, 40, 0.55);
