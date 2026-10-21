@@ -1,4 +1,5 @@
 import './team-screen.css';
+import { applyTeamAccent } from './accent';
 import { Car } from './types';
 import {
   createDefaultRoster,
@@ -9,6 +10,12 @@ import {
   DEV_IDS,
   DEV_LABELS,
   DEV_MAX_LEVEL,
+  driverVal,
+  MAX_DRIVER_STAT,
+  PILOT_ATTRS,
+  pilotUpgradeCost,
+  applyPilotUpgrade,
+  setDriverNumber,
   Roster,
   TeamEntry,
 } from './roster';
@@ -46,7 +53,7 @@ interface InstallPromptEvent extends Event {
 // the race button.
 // ============================================================
 
-type TabId = 'team' | 'hq' | 'rivals' | 'sponsors' | 'champ';
+type TabId = 'team' | 'pilots' | 'hq' | 'rivals' | 'sponsors' | 'champ';
 type StaffKey = 'mechanics' | 'engineers' | 'commercial';
 
 const STAFF_INFO: Record<StaffKey, { label: string; effect: (level: number) => string }> = {
@@ -81,6 +88,11 @@ export function createTeamScreen(
     slotDiff
   );
   saveCareer(career);
+  // Spec 019: this slot's livery color becomes the UI accent (also
+  // covers switching slots from the Partidas screen).
+  applyTeamAccent(
+    roster.entries.find((e) => e.team.id === roster.playerTeamId)!.team.color
+  );
   let tab: TabId = 'team';
 
   const root = document.createElement('div');
@@ -89,6 +101,7 @@ export function createTeamScreen(
     <header class="team-header">
       <nav class="nav-tabs">
         <button type="button" class="btn nav-btn active" data-tab="team">Mi Equipo</button>
+        <button type="button" class="btn nav-btn" data-tab="pilots">Pilotos</button>
         <button type="button" class="btn nav-btn" data-tab="hq">Sede</button>
         <button type="button" class="btn nav-btn" data-tab="rivals">Rivales</button>
         <button type="button" class="btn nav-btn" data-tab="sponsors">Patrocinadores</button>
@@ -230,6 +243,7 @@ export function createTeamScreen(
   function renderTab(): void {
     panel.innerHTML = '';
     if (tab === 'team') renderTeamTab();
+    else if (tab === 'pilots') renderPilotsTab();
     else if (tab === 'hq') renderHqTab();
     else if (tab === 'rivals') renderRivalsTab();
     else if (tab === 'sponsors') renderSponsorsTab();
@@ -254,8 +268,14 @@ export function createTeamScreen(
       <label class="field">Piloto 1
         <input class="in player-driver-input" data-seat="0" type="text" maxlength="24" />
       </label>
+      <label class="field">Dorsal 1
+        <input class="in player-number-input" data-seat="0" type="number" min="1" max="99" inputmode="numeric" title="Número de carrera (1-99, distinto del resto de la parrilla)" />
+      </label>
       <label class="field">Piloto 2
         <input class="in player-driver-input" data-seat="1" type="text" maxlength="24" />
+      </label>
+      <label class="field">Dorsal 2
+        <input class="in player-number-input" data-seat="1" type="number" min="1" max="99" inputmode="numeric" title="Número de carrera (1-99, distinto del resto de la parrilla)" />
       </label>`;
     panel.appendChild(identity);
 
@@ -270,8 +290,22 @@ export function createTeamScreen(
     colorInput.value = playerEntry().team.color;
     colorInput.addEventListener('input', () => {
       playerEntry().team.color = colorInput.value;
+      // Spec 019: the whole UI follows the livery live.
+      applyTeamAccent(colorInput.value);
       syncAll();
     });
+    // Spec 019: customizable race numbers (1-99, unique across the
+    // grid) — they ride next to the driver names they belong to.
+    for (const input of identity.querySelectorAll<HTMLInputElement>('.player-number-input')) {
+      const seat = Number(input.dataset.seat);
+      const driver = playerEntry().drivers[seat];
+      input.value = String(driver.number);
+      input.addEventListener('change', () => {
+        const ok = setDriverNumber(roster, playerEntry(), seat, Number(input.value));
+        if (ok) syncAll();
+        else input.value = String(driver.number); // junk or taken: revert
+      });
+    }
     for (const input of identity.querySelectorAll<HTMLInputElement>('.player-driver-input')) {
       const seat = Number(input.dataset.seat);
       bindTextInput(
@@ -318,6 +352,73 @@ export function createTeamScreen(
       devList.appendChild(row);
     }
     panel.appendChild(devList);
+  }
+
+  // ---- Tab: Pilotos (spec 019) ----
+  // The 4 trainable attributes per driver; the mean of the four is
+  // the overall rating ("val"). Each +1 is a real stat point the
+  // simulation reads live.
+  function renderPilotsTab(): void {
+    const title = document.createElement('h2');
+    title.textContent = 'Pilotos';
+    panel.appendChild(title);
+
+    showGuideOnce(
+      'pilots',
+      'Pilotos en 4 ideas',
+      [
+        'Cuatro atributos: ritmo (velocidad), habilidad (vueltas limpias), reflejos (lluvia) y experiencia (menos incidentes).',
+        'La valoración general (val) es la media de los cuatro.',
+        'Cada mejora cuesta más que la anterior; el tope es 95, como los mejores rivales.',
+        'Los rivales también tienen su val: míralo en la pestaña Rivales.',
+      ]
+    );
+
+    for (const driver of playerEntry().drivers) {
+      const block = document.createElement('div');
+      block.className = 'pilot-block';
+      const head = document.createElement('div');
+      head.className = 'pilot-head';
+      head.innerHTML = `
+        <span class="pilot-name"></span>
+        <span class="pilot-val"></span>`;
+      head.querySelector<HTMLElement>('.pilot-name')!.textContent = driver.name;
+      head.querySelector<HTMLElement>('.pilot-val')!.textContent = `val ${driverVal(driver)}`;
+      block.appendChild(head);
+
+      const list = document.createElement('div');
+      list.className = 'dev-list';
+      for (const attr of PILOT_ATTRS) {
+        const value = driver[attr.stat];
+        const bought = driver.training?.[attr.id] ?? 0;
+        // Rising cost per bought level, NO engineers discount: this
+        // is staff, not car parts.
+        const cost = pilotUpgradeCost(bought);
+        const row = document.createElement('div');
+        row.className = 'dev-row';
+        row.innerHTML = `
+          <span class="dev-name">${attr.label}</span>
+          <span class="dev-level"></span>
+          <button type="button" class="btn dev-btn"></button>`;
+        const levelEl = row.querySelector<HTMLElement>('.dev-level')!;
+        levelEl.textContent = `${value}/${MAX_DRIVER_STAT}`;
+        const btn = row.querySelector<HTMLButtonElement>('.dev-btn')!;
+        const maxed = value >= MAX_DRIVER_STAT;
+        btn.textContent = maxed ? 'MÁX' : `+1 · ${cost} M€`;
+        btn.disabled = maxed || career.budget < cost;
+        btn.addEventListener('click', () => {
+          // Shared validation + mutation (also covered by the harness).
+          const result = applyPilotUpgrade(driver, attr.id, career.budget);
+          if (!result.ok) return;
+          career.budget -= result.cost;
+          syncAll();
+          refresh();
+        });
+        list.appendChild(row);
+      }
+      block.appendChild(list);
+      panel.appendChild(block);
+    }
   }
 
   // ---- Tab: Sede ----
@@ -423,8 +524,13 @@ export function createTeamScreen(
       }
       const avg = (get: (c: Car) => number): number =>
         Math.round((get(entry.cars[0]) + get(entry.cars[1])) / 2);
+      // Spec 019: the rival drivers' average overall rating first —
+      // the number your own val (Pilotos tab) competes against.
+      const val = Math.round(
+        (driverVal(entry.drivers[0]) + driverVal(entry.drivers[1])) / 2
+      );
       row.querySelector<HTMLElement>('.rival-stats')!.textContent =
-        `A ${avg((c) => c.aero)} · M ${avg((c) => c.engine)} · C ${avg((c) => c.chassis)}`;
+        `val ${val} · A ${avg((c) => c.aero)} · M ${avg((c) => c.engine)} · C ${avg((c) => c.chassis)}`;
       rivalList.appendChild(row);
     }
     panel.appendChild(rivalList);

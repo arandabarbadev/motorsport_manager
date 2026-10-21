@@ -1,4 +1,4 @@
-import { Car, Driver, Team } from './types';
+import { Car, Driver, PilotAttr, Team } from './types';
 import {
   FIRST_NAMES,
   LAST_NAMES,
@@ -60,6 +60,71 @@ export function devCost(currentLevel: number): number {
 export const MAX_CAR_STAT = 95; // cap for effective aero/engine/chassis
 export const PLAYER_START_STAT = 65; // player cars start below the rival average (60-85)
 
+// ------------------------------------------------------------
+// Pilot development (spec 019): 4 trainable attributes, each one
+// a real simulation stat. The mean of the four is the overall
+// rating shown in the UI ("val"). Costs rise per level like the
+// car developments, but engineers do NOT discount them (staff,
+// not parts).
+// ------------------------------------------------------------
+export const MAX_DRIVER_STAT = 95; // same ceiling as the rivals' range
+export const PILOT_COST_PER_POINT = 15; // M€: next level = 15 x (bought + 1)
+
+export const PILOT_ATTRS: { id: PilotAttr; label: string; stat: 'pace' | 'consistency' | 'wetSkill' | 'experience' }[] = [
+  { id: 'ritmo', label: 'Ritmo', stat: 'pace' },
+  { id: 'habilidad', label: 'Habilidad', stat: 'consistency' },
+  { id: 'reflejos', label: 'Reflejos', stat: 'wetSkill' },
+  { id: 'experiencia', label: 'Experiencia', stat: 'experience' },
+];
+
+export function pilotUpgradeCost(levelsBought: number): number {
+  return PILOT_COST_PER_POINT * (levelsBought + 1);
+}
+
+// One +1 purchase attempt: validates the cap and the budget, then
+// bumps the stat and the training ledger. Returns the cost charged
+// (ok: false, cost: 0 = nothing happened). The caller deducts the
+// money from the career budget.
+export function applyPilotUpgrade(
+  driver: Driver,
+  attrId: PilotAttr,
+  budget: number
+): { ok: boolean; cost: number } {
+  const attr = PILOT_ATTRS.find((a) => a.id === attrId)!;
+  if (driver[attr.stat] >= MAX_DRIVER_STAT) return { ok: false, cost: 0 };
+  const bought = driver.training?.[attrId] ?? 0;
+  const cost = pilotUpgradeCost(bought);
+  if (budget < cost) return { ok: false, cost: 0 };
+  driver[attr.stat] += 1;
+  driver.training = { ...driver.training, [attrId]: bought + 1 };
+  return { ok: true, cost };
+}
+
+// Overall rating (spec 019): mean of the four trainable attributes.
+export function driverVal(d: Driver): number {
+  return Math.round((d.pace + d.consistency + d.wetSkill + d.experience) / 4);
+}
+
+// Player-editable race number: 1-99 integers, unique across ALL 20
+// drivers of the roster. Returns false (no change) on junk input or
+// a duplicated number.
+export function setDriverNumber(
+  roster: Roster,
+  entry: TeamEntry,
+  seat: number,
+  n: number
+): boolean {
+  if (!Number.isInteger(n) || n < 1 || n > 99) return false;
+  const driver = entry.drivers[seat];
+  if (!driver) return false;
+  const taken = roster.entries
+    .flatMap((e) => e.drivers)
+    .some((d) => d.id !== driver.id && d.number === n);
+  if (taken) return false;
+  driver.number = n;
+  return true;
+}
+
 const RIVAL_TEAM_COUNT = 9;
 const DRIVERS_PER_TEAM = 2;
 
@@ -89,6 +154,8 @@ function randomDriverStats() {
     aggression: randInt(15, 95),
     wetSkill: randInt(50, 90),
     riskTolerance: randInt(10, 90),
+    // Spec 019: starts at 50 = the pre-019 incident behavior.
+    experience: randInt(50, 90),
   };
 }
 
@@ -154,6 +221,7 @@ export function createDefaultRoster(budget: number = INITIAL_BUDGET): Roster {
       name: `Piloto ${seat + 1}`,
       number: seat + 1,
       ...randomDriverStats(),
+      training: {}, // spec 019: empty upgrade ledger at the start
     })),
     cars: [0, 1].map((seat) => ({
       id: `player-team-c${seat}`,
@@ -207,6 +275,17 @@ export function loadRoster(): Roster | null {
     if (!shapeOk) return null;
     // Migration: older player entries have no developments.
     if (!player.developments) player.developments = {};
+    // Spec 019 migration: every driver gets an experience (50 = the
+    // pre-019 incident behavior), the player's get an empty training
+    // ledger so upgrade costs start at level 0.
+    for (const entry of parsed.entries) {
+      for (const driver of entry.drivers) {
+        if (typeof driver.experience !== 'number') driver.experience = 50;
+      }
+    }
+    for (const driver of player.drivers) {
+      if (!driver.training) driver.training = {};
+    }
     // Migration: older saves have no race numbers (spec 008) — assign
     // by flat position (player entries are first, so they get 1-2).
     parsed.entries

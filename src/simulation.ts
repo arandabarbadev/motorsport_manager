@@ -97,6 +97,7 @@ const FALLBACK_DRIVER: Driver = {
   aggression: 50,
   wetSkill: 50,
   riskTolerance: 50,
+  experience: 50,
 };
 const FALLBACK_CAR: Car = {
   id: 'fallback-car',
@@ -341,7 +342,13 @@ function runIncidents(state: RaceState, seconds: number, events: RaceEvent[]): v
     if (car.status !== 'racing') continue;
     const driver = lookupDriver(state, car);
     const spec = lookupCarSpec(state, car);
-    const risk = 0.55 + (driver.aggression + driver.riskTolerance) / 220; // ~0.7-1.4
+    // Spec 019: trained experience takes the edge off — every point
+    // above 50 lowers the risk multiplier (down to -0.09 at 95).
+    // Legacy saves migrate with experience 50, i.e. zero change.
+    const risk = Math.max(
+      0.3,
+      0.55 + (driver.aggression + driver.riskTolerance) / 220 - (driver.experience - 50) / 500
+    ); // ~0.7-1.4 for untrained drivers
     const pMinor = INCIDENT_MINOR_PER_SEC * risk * weatherFactor * seconds;
     const pMajor = INCIDENT_MAJOR_PER_SEC * risk * weatherFactor * seconds;
     const pMech = MECH_FAILURE_PER_SEC * (2 - spec.reliability / 100) * seconds;

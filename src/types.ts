@@ -16,17 +16,29 @@ export type Weather = 'dry' | 'lightRain' | 'heavyRain';
 // red (race suspended).
 export type RaceFlag = 'green' | 'yellow' | 'red';
 
+// Spec 019: trainable pilot attributes (Pilotos tab). Each maps
+// onto a real simulation stat — see PILOT_ATTRS in roster.ts.
+export type PilotAttr = 'ritmo' | 'habilidad' | 'reflejos' | 'experiencia';
+
 export interface Driver {
   id: string;
   name: string;
-  // Race number (1-20): identifies the car without relying on team
-  // colors (colorblind accessibility, spec 008).
+  // Race number: identifies the car without relying on team colors
+  // (colorblind accessibility, spec 008). Player-editable 1-99 and
+  // unique across the 20 drivers (spec 019).
   number: number;
   pace: number;
   consistency: number;
   aggression: number;
   wetSkill: number;
   riskTolerance: number;
+  // Spec 019: experience lowers the incident risk in the sim
+  // (see runIncidents). 50 = the pre-019 behavior (legacy saves
+  // migrate to 50, so nothing changes for them).
+  experience: number;
+  // Spec 019: levels BOUGHT per attribute (cost scaling only; the
+  // live stat is the stat itself). Player team only.
+  training?: Partial<Record<PilotAttr, number>>;
 }
 
 export interface Car {

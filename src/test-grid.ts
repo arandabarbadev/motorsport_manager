@@ -51,6 +51,7 @@ function buildTestRoster(): Roster {
         aggression: Math.round(rand(15, 95)),
         wetSkill: Math.round(rand(50, 90)),
         riskTolerance: Math.round(rand(10, 90)),
+        experience: 50, // spec 019: pre-019 incident behavior
       });
       cars.push({
         id: `car-${teamIndex}-${seat}`,

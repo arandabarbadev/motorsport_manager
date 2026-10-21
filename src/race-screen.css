@@ -10,7 +10,7 @@
   flex-direction: column;
   height: 100vh;
   color: var(--text);
-  font-family: system-ui, 'Segoe UI', sans-serif;
+  font-family: var(--font-ui); /* spec 019 */
   background: var(--bg);
 }
 
@@ -89,7 +89,7 @@
 .results-panel {
   background: var(--panel);
   border: 1px solid var(--border-2);
-  border-radius: 14px;
+  border-radius: var(--radius-data);
   padding: 18px 20px;
   width: min(92vw, 380px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
@@ -149,8 +149,6 @@
 
 .hud-title {
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
   color: var(--dim);
   margin: 10px 0 6px;
 }
@@ -158,7 +156,7 @@
 .pit-box {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-data);
   padding: 8px 10px;
   margin-bottom: 8px;
 }
@@ -178,12 +176,20 @@
 }
 
 /* Spec 015: current rubber of each player car, right where the next
-   compound is chosen. */
+   compound is chosen. Spec 019: the car's POSITION sits to the left
+   of the rubber — your place in the race, where the strategy lives. */
 .pit-tyre {
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 4px 0 6px;
+}
+
+.pit-pos {
+  font-weight: 700;
+  color: var(--accent-text);
+  min-width: 2.4em;
+  white-space: nowrap;
 }
 
 .pit-tyre .tyre {
@@ -221,7 +227,7 @@
   gap: 6px;
   align-items: center;
   padding: 5px 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-data);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
@@ -230,8 +236,13 @@
   background: var(--accent-bg);
 }
 
+/* Spec 019: THE one display-font moment — the position numbers of
+   the live standings, timing-tower style. */
 .standing-row .pos {
-  color: var(--dim);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
 }
 
 /* Race number (spec 008): bold so the car is identifiable without
@@ -264,30 +275,37 @@
   font-weight: 700;
 }
 
+/* Spec 019: the real F1 compound code — soft red, medium yellow,
+   hard white, intermediate green, wet blue. Theme variants in
+   ui.css; hard white gets a dark halo on the light theme. */
 .tyre.soft {
-  color: #e05252;
+  color: var(--tyre-soft);
 }
 
 .tyre.medium {
-  color: #b08800;
+  color: var(--tyre-medium);
 }
 
 .tyre.hard {
-  color: var(--text);
+  color: var(--tyre-hard);
+}
+
+:root[data-theme='light'] .tyre.hard {
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.85), 0 0 2px rgba(0, 0, 0, 0.85);
 }
 
 .tyre.inter {
-  color: #43b02a;
+  color: var(--tyre-inter);
 }
 
 .tyre.wet {
-  color: var(--accent);
+  color: var(--tyre-wet);
 }
 
 .wear {
   height: 8px;
   background: var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-data);
   overflow: hidden;
 }
 
@@ -344,7 +362,9 @@
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
-  border-radius: 12px;
+  /* Physical gantry, not a data card: keeps a small radius
+     (spec 019 exception). */
+  border-radius: 4px;
   background: color-mix(in srgb, var(--panel) 88%, #000 12%);
   border: 1px solid var(--border-2);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
@@ -383,8 +403,6 @@
 .lights-label {
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--dim);
 }
 
@@ -402,7 +420,7 @@
 .feed-item {
   font-size: 12px;
   padding: 3px 6px 3px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-data);
   position: relative;
   color: var(--text);
   overflow: hidden;
@@ -445,10 +463,9 @@
   top: 12px;
   left: 12px;
   padding: 8px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-data);
   font-weight: 700;
   font-size: 14px;
-  letter-spacing: 0.02em;
   border: 1px solid var(--border-2);
   background: var(--panel);
   color: var(--text);
@@ -568,6 +585,5 @@
 
   .wear {
     height: 6px;
-    border-radius: 3px;
   }
 }

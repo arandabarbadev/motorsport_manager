@@ -2,56 +2,146 @@
    Shared UI primitives + theme tokens (light/dark) for all
    screens. Dark is the default; :root[data-theme='light']
    overrides the variables. Canvas colors read these too.
+
+   Spec 019 — the game looks like F1, not like a dev tool:
+   - neutral carbon dark theme (no blue tint), F1 tyre colors,
+   - ONE functional font (Inter) with tabular figures everywhere,
+     Barlow Condensed reserved for the live-standings positions,
+   - border radius only where things are TOUCHED (buttons/inputs);
+     data surfaces are square-ish (2px),
+   - --accent is DYNAMIC: src/accent.ts writes the player team
+     color over it; the derived variants use color-mix so both
+     themes stay readable.
    ============================================================ */
 
+/* Fonts are served from the bundle (hashed assets): the service
+   worker caches them and the PWA keeps working offline. Inter is
+   a variable font (400-700 in one file per subset). */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./fonts/Inter-var-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./fonts/Inter-var-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fonts/BarlowCondensed-600-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fonts/BarlowCondensed-600-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/BarlowCondensed-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/BarlowCondensed-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 :root {
-  --bg: #0d1117;
-  --panel: #161b22;
-  --panel-2: #0f141a;
-  --input-bg: #0d1117;
-  --border: #21262d;
-  --border-2: #30363d;
-  --text: #e6edf3;
-  --dim: #8b949e;
-  --accent: #1f6feb;
-  --accent-text: #9ecbff;
-  --accent-bg: #1c2a3a;
-  --accent-bg-border: #2f4a63;
+  /* Neutral carbon ("asfalto de noche"): no blue tint (±2/channel). */
+  --bg: #161718;
+  --panel: #1f2021;
+  --panel-2: #191a1b;
+  --input-bg: #161718;
+  --border: #2c2d2e;
+  --border-2: #3c3d3e;
+  --text: #ececee;
+  --dim: #9b9ca1;
+  /* Spec 019: the accent defaults to F1 red (the player team's
+     starting color); src/accent.ts overrides it live. */
+  --accent: #e10600;
+  --accent-text: color-mix(in srgb, var(--accent) 55%, #ffffff);
+  --accent-bg: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  --accent-bg-border: color-mix(in srgb, var(--accent) 40%, var(--panel));
+  /* Button text over the accent, set by luminance (a yellow livery
+     needs dark text). */
+  --accent-contrast: #ffffff;
   --green: #2ea043;
   --green-text: #3fb950;
   --amber: #d29922;
   --red: #da3633;
-  --btn-bg: #21262d;
-  --btn-hover: #30363d;
+  --btn-bg: #262728;
+  --btn-hover: #323334;
   --track-halo: rgba(0, 0, 0, 0.45);
-  --track-asphalt: #30363d;
-  --track-start: #e6edf3;
+  --track-asphalt: #33353a;
+  --track-start: #ececee;
   --car-outline: rgba(0, 0, 0, 0.55);
+  /* Real F1 compound code (spec 019): S red, M yellow, H white,
+     I green, W blue. */
+  --tyre-soft: #ff2e1f;
+  --tyre-medium: #ffd12e;
+  --tyre-hard: #f2f3f4;
+  --tyre-inter: #37c856;
+  --tyre-wet: #2aa8e8;
+  --font-ui: 'Inter', system-ui, 'Segoe UI', sans-serif;
+  /* Display font: ONE moment only — live-standings position
+     numbers (see race-screen.css). */
+  --font-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  /* Radius means "this is touched": data surfaces are square. */
+  --radius-touch: 8px;
+  --radius-data: 2px;
 }
 
 :root[data-theme='light'] {
-  --bg: #eef1f4;
+  --bg: #f3f3f4;
   --panel: #ffffff;
-  --panel-2: #f6f8fa;
+  --panel-2: #f7f7f8;
   --input-bg: #ffffff;
-  --border: #d8dee4;
-  --border-2: #c4ccd4;
-  --text: #1f2328;
-  --dim: #59636e;
-  --accent: #0969da;
-  --accent-text: #0550ae;
-  --accent-bg: #ddf4ff;
-  --accent-bg-border: #54aeff;
+  --border: #d9dadb;
+  --border-2: #c4c5c6;
+  --text: #1b1c1e;
+  --dim: #5d5e63;
+  --accent: #e10600;
+  --accent-text: color-mix(in srgb, var(--accent) 72%, #000000);
+  --accent-bg: color-mix(in srgb, var(--accent) 10%, #ffffff);
+  --accent-bg-border: color-mix(in srgb, var(--accent) 35%, #ffffff);
+  --accent-contrast: #ffffff;
   --green: #1a7f37;
   --green-text: #1a7f37;
   --amber: #9a6700;
   --red: #cf222e;
-  --btn-bg: #f0f3f6;
-  --btn-hover: #e4e8ec;
+  --btn-bg: #f0f0f1;
+  --btn-hover: #e4e4e6;
   --track-halo: rgba(31, 35, 40, 0.35);
-  --track-asphalt: #dfe4e9;
-  --track-start: #1f2328;
+  --track-asphalt: #dfe0e2;
+  --track-start: #1b1c1e;
   --car-outline: rgba(31, 35, 40, 0.55);
+  /* Darker tyre hues stay legible on white; hard keeps the F1
+     white code behind a dark halo. */
+  --tyre-soft: #d61f0e;
+  --tyre-medium: #8a6d00;
+  --tyre-hard: #ffffff;
+  --tyre-inter: #157f37;
+  --tyre-wet: #0a6aa8;
 }
 
 html,
@@ -59,6 +149,13 @@ body {
   margin: 0;
   height: 100%;
   background: var(--bg);
+}
+
+body {
+  font-family: var(--font-ui);
+  /* Spec 019: tabular figures everywhere so positions, times and
+     money never dance in the tables. */
+  font-variant-numeric: tabular-nums;
 }
 
 .hidden {
@@ -90,7 +187,7 @@ body {
   background: var(--btn-bg);
   color: var(--text);
   border: 1px solid var(--border-2);
-  border-radius: 8px;
+  border-radius: var(--radius-touch);
   padding: 8px 12px;
   font-size: 14px;
   cursor: pointer;
@@ -109,17 +206,19 @@ body {
 .btn.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #ffffff;
+  color: var(--accent-contrast);
 }
 
+/* Spec 019: the primary action wears the TEAM color (accent), not
+   a fixed green — green stays for success states only. */
 .btn.primary {
-  background: #238636;
-  border-color: #2ea043;
-  color: #ffffff;
+  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 75%, #000000);
+  color: var(--accent-contrast);
 }
 
 .btn.primary:hover:not(:disabled) {
-  background: #2ea043;
+  background: color-mix(in srgb, var(--accent) 82%, #ffffff);
 }
 
 /* First-time guide card (spec 008): floats over the screen, never
@@ -134,7 +233,7 @@ body {
   max-width: min(440px, calc(100vw - 24px));
   background: var(--panel);
   border: 1px solid var(--accent-bg-border);
-  border-radius: 12px;
+  border-radius: var(--radius-data);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   padding: 14px 16px;
   display: grid;
@@ -179,7 +278,7 @@ body {
   background: var(--panel);
   border: 1px solid var(--border-2);
   border-left: 4px solid var(--accent);
-  border-radius: 10px;
+  border-radius: var(--radius-data);
   padding: 8px 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   animation: notice-in 180ms ease;

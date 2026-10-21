@@ -4,6 +4,14 @@ import { buildTestRaceState } from './test-grid';
 import { ALL_TRACKS } from './tracks-generator';
 import { LATERAL_MAX, lateralTarget, stepLateral } from './racing-line';
 import {
+  applyPilotUpgrade,
+  createDefaultRoster,
+  driverVal,
+  MAX_DRIVER_STAT,
+  pilotUpgradeCost,
+  setDriverNumber,
+} from './roster';
+import {
   DIFFICULTY_ORDER,
   DIFFICULTY_PRESETS,
   difficultyOrHard,
@@ -260,6 +268,74 @@ function weatherSelfCheck(lines: string[]): void {
   );
 }
 
+// Acceptance check 7 (spec 019): pilot development and race numbers.
+// Upgrades move the REAL simulation stats, cost rises per level, the
+// cap holds, val is the mean of the four attributes, and numbers are
+// unique across the grid.
+function pilotsSelfCheck(lines: string[]): void {
+  let failures = 0;
+  const expect = (ok: boolean, what: string): void => {
+    if (!ok) {
+      failures++;
+      lines.push('FAIL pilotos: ' + what);
+    }
+  };
+
+  const roster = createDefaultRoster(200);
+  const player = roster.entries.find((e) => e.team.id === roster.playerTeamId)!;
+  const driver = player.drivers[0];
+
+  // Fresh roster: experience generated, training ledger present.
+  expect(
+    roster.entries.every((e) => e.drivers.every((d) => d.experience >= 50 && d.experience <= 90)),
+    'experience generada 50-90'
+  );
+  expect(player.drivers.every((d) => d.training && Object.keys(d.training).length === 0), 'training vacio al empezar');
+
+  // val = mean of the four trainable attributes.
+  const before = driverVal(driver);
+  expect(
+    before === Math.round((driver.pace + driver.consistency + driver.wetSkill + driver.experience) / 4),
+    'val = media de las 4'
+  );
+
+  // First upgrade of Ritmo: +1 pace, 15 M€, ledger ticks up.
+  const paceBefore = driver.pace;
+  const first = applyPilotUpgrade(driver, 'ritmo', 200);
+  expect(first.ok && first.cost === 15, 'primer nivel cuesta 15');
+  expect(driver.pace === paceBefore + 1, 'ritmo sube la stat real (pace)');
+  expect((driver.training?.ritmo ?? 0) === 1, 'ledger del training');
+  expect(pilotUpgradeCost(1) === 30, 'el segundo nivel cuesta 30');
+  expect(
+    driverVal(driver) === before || driverVal(driver) === before + 1,
+    'val sigue a la media (redondeo)'
+  );
+
+  // Broke team: no purchase, no change.
+  const paceMid = driver.pace;
+  expect(applyPilotUpgrade(driver, 'ritmo', 5).ok === false, 'sin dinero no compra');
+  expect(driver.pace === paceMid, 'sin dinero no cambia la stat');
+
+  // Cap: a maxed stat cannot be bought even with money.
+  driver.pace = MAX_DRIVER_STAT;
+  expect(applyPilotUpgrade(driver, 'ritmo', 9999).ok === false, 'tope 95 bloqueado');
+  driver.pace = paceMid; // restore
+
+  // Race numbers: 1-99, unique across the whole grid.
+  expect(setDriverNumber(roster, player, 0, 44) === true, 'dorsal 44 aceptado');
+  expect(player.drivers[0].number === 44, 'dorsal persistido en el driver');
+  expect(setDriverNumber(roster, player, 0, 3) === false, 'dorsal de un rival rechazado');
+  expect(player.drivers[0].number === 44, 'dorsal no cambia al rechazar');
+  expect(setDriverNumber(roster, player, 0, 0) === false, '0 fuera de rango');
+  expect(setDriverNumber(roster, player, 0, 100) === false, '100 fuera de rango');
+
+  lines.push(
+    failures === 0
+      ? 'Pilotos check: mejora real OK | coste creciente OK | tope OK | val media OK | dorsales unicos OK'
+      : 'Pilotos check: ' + failures + ' FALLOS'
+  );
+}
+
 export function runTestHarness(): string {
   const state: RaceState = buildTestRaceState();
 
@@ -369,6 +445,9 @@ export function runTestHarness(): string {
   // Acceptance check 5 (spec 018): tracks and 6 (spec 018): rain.
   tracksSelfCheck(lines);
   weatherSelfCheck(lines);
+
+  // Acceptance check 7 (spec 019): pilots and race numbers.
+  pilotsSelfCheck(lines);
 
   return lines.join('\n');
 }

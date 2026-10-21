@@ -79,6 +79,8 @@ interface PitBox {
   tyre: HTMLElement;
   wearFill: HTMLElement;
   pct: HTMLElement;
+  // Spec 019: the car's race position, left of the rubber.
+  pos: HTMLElement;
 }
 
 export function createRaceScreen(
@@ -819,6 +821,9 @@ export function createRaceScreen(
     }
     for (const box of pitBoxes) {
       const car = state.cars.find((c) => c.driverId === box.carDriverId)!;
+      // Spec 019: your race place, left of the rubber — strategy
+      // info exactly where the strategy is decided.
+      box.pos.textContent = car.status === 'dnf' ? 'DNF' : `P${car.position}`;
       // Spec 015: current rubber next to the compound buttons.
       box.tyre.textContent = COMPOUND_LABEL[car.tyre.compound];
       box.tyre.className = 'tyre ' + car.tyre.compound;
@@ -898,6 +903,7 @@ export function createRaceScreen(
       const tyreLine = document.createElement('div');
       tyreLine.className = 'pit-tyre';
       tyreLine.innerHTML = `
+        <span class="pit-pos"></span>
         <span class="tyre"></span>
         <span class="wear"><span class="wear-fill"></span></span>
         <span class="pit-tyre-pct"></span>`;
@@ -940,6 +946,7 @@ export function createRaceScreen(
         tyre: tyreLine.querySelector<HTMLElement>('.tyre')!,
         wearFill: tyreLine.querySelector<HTMLElement>('.wear-fill')!,
         pct: tyreLine.querySelector<HTMLElement>('.pit-tyre-pct')!,
+        pos: tyreLine.querySelector<HTMLElement>('.pit-pos')!,
       });
     }
   }
