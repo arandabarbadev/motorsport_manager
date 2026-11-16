@@ -1,0 +1,37 @@
+<!doctype html>
+<!-- Tapón de redirección: el repo se renombró a f1-manager y GitHub
+     Pages NO redirige las URLs viejas al renombrar. Esta página vive
+     en el repo "motorsport_manager" (el nombre antiguo) solo para
+     que la PWA instalada y los enlaces viejos reboten a la URL
+     nueva. Copia local exigida por la constitución VIII. -->
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="0; url=https://arandabarbadev.github.io/f1-manager/">
+  <title>F1 Manager se ha movido</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0E0F11; color: #F2F3F5;
+           display: grid; place-items: center; height: 100vh; margin: 0; }
+    a { color: #CDF630; }
+  </style>
+</head>
+<body>
+  <div style="text-align:center">
+    <p>F1 Manager ahora vive en</p>
+    <p><a href="https://arandabarbadev.github.io/f1-manager/">arandabarbadev.github.io/f1-manager</a></p>
+  </div>
+  <script>
+    // El service worker de la ubicación vieja ya no tiene nada que
+    // servir: se da de baja para que esta redirección llegue siempre.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (rs) {
+        rs.forEach(function (r) { r.unregister(); });
+      });
+    }
+    setTimeout(function () {
+      location.replace('https://arandabarbadev.github.io/f1-manager/');
+    }, 50);
+  </script>
+</body>
+</html>
